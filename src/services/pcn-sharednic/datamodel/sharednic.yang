@@ -1,0 +1,27 @@
+module sharednic {
+  yang-version 1.1;
+  namespace "http://polycube.network/sharednic";
+  prefix "sharednic";
+
+  import polycube-base { prefix "basemodel"; }
+
+  organization "Polycube open source project";
+  description "YANG data model for the Polycube Sharednic service";
+
+  basemodel:service-description "Sharednic Service";
+  basemodel:service-version "2.0";
+  basemodel:service-name "sharednic";
+  basemodel:service-min-kernel-version "4.14.0";
+
+  uses "basemodel:base-yang-module";
+
+  leaf action {
+    type enumeration {
+      enum DROP;
+      enum LINUX;
+      enum POLYCUBE;
+    }
+    default DROP;
+    description "Action performed on the received packet (i.e., DROP, LINUX, or POLYCUBE; default: DROP)";
+  }
+}
