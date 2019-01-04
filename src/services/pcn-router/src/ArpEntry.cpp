@@ -22,7 +22,7 @@
 
 ArpEntry::ArpEntry(Router &parent, const ArpEntryJsonObject &conf)
 : parent_(parent) {
-  logger()->info("Creating ArpEntry instance");
+  logger()->info("creating ArpEntry instance");
 }
 
 ArpEntry::ArpEntry(Router &parent, const std::string &mac, const std::string &ip,
@@ -62,7 +62,7 @@ void ArpEntry::create(Router &parent, const std::string &address,
   //This method creates the actual ArpEntry object given thee key param.
   //Please remember to call here the create static method for all sub-objects of ArpEntry.
 
-  parent.logger()->debug("Creating ARP entry [ip: {0} - mac: {1} - interface: {2}",
+  parent.logger()->debug("creating ARP entry [ip: {0} - mac: {1} - interface: {2}",
     address, conf.getMac(), conf.getInterface());
 
   uint64_t mac = utils::mac_string_to_be_uint(conf.getMac());
@@ -77,7 +77,7 @@ void ArpEntry::create(Router &parent, const std::string &address,
 std::shared_ptr<ArpEntry> ArpEntry::getEntry(Router &parent, const std::string &address){
   //This method retrieves the pointer to ArpEntry object specified by its keys.
 
-  parent.logger()->debug("Getting the ARP table entry for address: {0}", address);
+  parent.logger()->debug("getting the ARP table entry for address: {0}", address);
 
   uint32_t ip_key = utils::ip_string_to_be_uint(address);
 
@@ -90,12 +90,12 @@ std::shared_ptr<ArpEntry> ArpEntry::getEntry(Router &parent, const std::string &
 
     auto port = parent.get_port(entry.port);
 
-    parent.logger()->debug("Returning entry [ip: {0} - mac: {1} - interface: {2}]",
+    parent.logger()->debug("returning entry [ip: {0} - mac: {1} - interface: {2}]",
                             address, mac, port->name());
 
     return std::make_shared<ArpEntry>(ArpEntry(parent, mac, address, port->name()));
   } catch (std::exception &e) {
-    parent.logger()->error("Unable to find ARP table entry for address {0}. {1}",
+    parent.logger()->error("unable to find ARP table entry for address {0}. {1}",
                             address, e.what());
     throw std::runtime_error("ARP table entry not found");
   }
@@ -105,14 +105,14 @@ void ArpEntry::removeEntry(Router &parent, const std::string &address){
   //This method removes the single ArpEntry object specified by its keys.
   //Remember to call here the remove static method for all-sub-objects of ArpEntry.
 
-  parent.logger()->debug("Remove the ARP table entry for address {0}", address);
+  parent.logger()->debug("remove the ARP table entry for address {0}", address);
 
   std::shared_ptr<ArpEntry> entry;
 
   try {
     entry = ArpEntry::getEntry(parent,address);
   } catch (std::exception &e) {
-    parent.logger()->error("Unable to remove the ARP table entry for address {0}. {1}",
+    parent.logger()->error("unable to remove the ARP table entry for address {0}. {1}",
                             address, e.what());
     throw std::runtime_error("ARP table entry not found");
   }
@@ -134,7 +134,7 @@ void ArpEntry::removeEntry(Router &parent, const std::string &address){
 std::vector<std::shared_ptr<ArpEntry>> ArpEntry::get(Router &parent){
   //This methods get the pointers to all the ArpEntry objects in Router.
 
-  parent.logger()->debug("Getting the ARP table");
+  parent.logger()->debug("getting the ARP table");
 
   std::vector<std::shared_ptr<ArpEntry>> arp_table_entries;
 
@@ -152,14 +152,14 @@ std::vector<std::shared_ptr<ArpEntry>> ArpEntry::get(Router &parent){
 
       auto port = parent.get_port(value.port);
 
-      parent.logger()->debug("Returning entry [ip: {0} - mac: {1} - interface: {2}]",
+      parent.logger()->debug("returning entry [ip: {0} - mac: {1} - interface: {2}]",
                               ip, mac, port->name());
 
       arp_table_entries.push_back(
         std::make_shared<ArpEntry>(ArpEntry(parent, mac, ip, port->name())));
     }
   } catch(std::exception &e) {
-    parent.logger()->error("Error while trying to get the ARP table");
+    parent.logger()->error("error while trying to get the ARP table");
     throw std::runtime_error("Unable to get the ARP table list");
   }
 
@@ -170,18 +170,18 @@ void ArpEntry::remove(Router &parent){
   //This method removes all ArpEntry objects in Router.
   //Remember to call here the remove static method for all-sub-objects of ArpEntry.
 
-  parent.logger()->info("Removing all the entries in teh ARP table");
+  parent.logger()->info("removing all the entries in teh ARP table");
 
   try {
     auto arp_table = parent.get_hash_table<uint32_t, arp_entry>("arp_table");
     arp_table.remove_all();
   } catch (std::exception &e) {
-    parent.logger()->error("Error while removing all entries from the ARP table. {0}",
+    parent.logger()->error("error while removing all entries from the ARP table. {0}",
                             e.what());
     throw std::runtime_error("Error while removing all entries from the ARP table");
   }
 
-  parent.logger()->info("The ARP table is empty");
+  parent.logger()->info("the ARP table is empty");
 }
 
 std::string ArpEntry::getInterface(){
@@ -191,7 +191,7 @@ std::string ArpEntry::getInterface(){
 
 void ArpEntry::setInterface(const std::string &value){
   //This method set the interface value.
-  throw std::runtime_error("[ArpEntry]: Method setInterface not implemented");
+  throw std::runtime_error("method ArpEntry::setInterface not implemented");
 }
 
 
@@ -202,7 +202,7 @@ std::string ArpEntry::getMac(){
 
 void ArpEntry::setMac(const std::string &value){
   //This method set the mac value.
-  throw std::runtime_error("[ArpEntry]: Method setMac not implemented");
+  throw std::runtime_error("method ArpEntry::setMac not implemented");
 }
 
 
@@ -216,5 +216,3 @@ std::string ArpEntry::getAddress(){
 std::shared_ptr<spdlog::logger> ArpEntry::logger() {
   return parent_.logger();
 }
-
-

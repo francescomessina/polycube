@@ -69,6 +69,7 @@ void RouterApi::setup_routes() {
   Routes::Get(router, base + ":name/ports/:ports_name/ip/", Routes::bind(&RouterApi::read_router_ports_ip_by_id_handler, this));
   Routes::Get(router, base + ":name/ports/", Routes::bind(&RouterApi::read_router_ports_list_by_id_handler, this));
   Routes::Get(router, base + ":name/ports/:ports_name/mac/", Routes::bind(&RouterApi::read_router_ports_mac_by_id_handler, this));
+  Routes::Get(router, base + ":name/ports/:ports_name/mirror/", Routes::bind(&RouterApi::read_router_ports_mirror_by_id_handler, this));
   Routes::Get(router, base + ":name/ports/:ports_name/netmask/", Routes::bind(&RouterApi::read_router_ports_netmask_by_id_handler, this));
   Routes::Get(router, base + ":name/ports/:ports_name/peer/", Routes::bind(&RouterApi::read_router_ports_peer_by_id_handler, this));
   Routes::Get(router, base + ":name/ports/:ports_name/secondaryip/:ip/:netmask/", Routes::bind(&RouterApi::read_router_ports_secondaryip_by_id_handler, this));
@@ -101,6 +102,7 @@ void RouterApi::setup_routes() {
   Routes::Patch(router, base + ":name/ports/:ports_name/ip/", Routes::bind(&RouterApi::update_router_ports_ip_by_id_handler, this));
   Routes::Patch(router, base + ":name/ports/", Routes::bind(&RouterApi::update_router_ports_list_by_id_handler, this));
   Routes::Patch(router, base + ":name/ports/:ports_name/mac/", Routes::bind(&RouterApi::update_router_ports_mac_by_id_handler, this));
+  Routes::Patch(router, base + ":name/ports/:ports_name/mirror/", Routes::bind(&RouterApi::update_router_ports_mirror_by_id_handler, this));
   Routes::Patch(router, base + ":name/ports/:ports_name/netmask/", Routes::bind(&RouterApi::update_router_ports_netmask_by_id_handler, this));
   Routes::Patch(router, base + ":name/ports/:ports_name/peer/", Routes::bind(&RouterApi::update_router_ports_peer_by_id_handler, this));
   Routes::Patch(router, base + ":name/ports/:ports_name/secondaryip/:ip/:netmask/", Routes::bind(&RouterApi::update_router_ports_secondaryip_by_id_handler, this));
@@ -703,6 +705,26 @@ void RouterApi::read_router_ports_mac_by_id_handler(
 
 
     auto x = read_router_ports_mac_by_id(name, portsName);
+    nlohmann::json response_body;
+    response_body = x;
+    response.send(polycube::service::Http::Code::Ok, response_body.dump(4));
+
+  } catch(const std::exception &e) {
+    response.send(polycube::service::Http::Code::Internal_Server_Error, e.what());
+  }
+}
+void RouterApi::read_router_ports_mirror_by_id_handler(
+  const polycube::service::Rest::Request &request,
+  polycube::service::HttpHandleResponse &response) {
+  // Getting the path params
+  auto name = request.param(":name").as<std::string>();
+  auto portsName = request.param(":ports_name").as<std::string>();
+
+
+  try {
+
+
+    auto x = read_router_ports_mirror_by_id(name, portsName);
     nlohmann::json response_body;
     response_body = x;
     response.send(polycube::service::Http::Code::Ok, response_body.dump(4));
@@ -1427,6 +1449,27 @@ void RouterApi::update_router_ports_mac_by_id_handler(
     response.send(polycube::service::Http::Code::Internal_Server_Error, e.what());
   }
 }
+void RouterApi::update_router_ports_mirror_by_id_handler(
+  const polycube::service::Rest::Request &request,
+  polycube::service::HttpHandleResponse &response) {
+  // Getting the path params
+  auto name = request.param(":name").as<std::string>();
+  auto portsName = request.param(":ports_name").as<std::string>();
+
+
+  try {
+    // Getting the body param
+    std::string value;
+
+    nlohmann::json request_body = nlohmann::json::parse(request.body());
+    // The conversion is done automatically by the json library
+    value = request_body;
+    update_router_ports_mirror_by_id(name, portsName, value);
+    response.send(polycube::service::Http::Code::Ok);
+  } catch(const std::exception &e) {
+    response.send(polycube::service::Http::Code::Internal_Server_Error, e.what());
+  }
+}
 void RouterApi::update_router_ports_netmask_by_id_handler(
   const polycube::service::Rest::Request &request,
   polycube::service::HttpHandleResponse &response) {
@@ -2013,4 +2056,3 @@ void RouterApi::read_router_route_list_by_id_help(
 }
 }
 }
-

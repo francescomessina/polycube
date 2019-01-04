@@ -700,6 +700,28 @@ RouterApiImpl::read_router_ports_mac_by_id(const std::string &name, const std::s
 
 
 /**
+* @brief   Read mirror by ID
+*
+* Read operation of resource: mirror*
+*
+* @param[in] name ID of name
+* @param[in] portsName ID of ports_name
+*
+* Responses:
+* std::string
+*/
+std::string
+RouterApiImpl::read_router_ports_mirror_by_id(const std::string &name, const std::string &portsName) {
+  auto router = get_cube(name);
+  auto ports = router->getPorts(portsName);
+  return ports->getMirror();
+
+}
+
+
+
+
+/**
 * @brief   Read netmask by ID
 *
 * Read operation of resource: netmask*
@@ -1309,6 +1331,29 @@ RouterApiImpl::update_router_ports_mac_by_id(const std::string &name, const std:
 
 
 /**
+* @brief   Update mirror by ID
+*
+* Update operation of resource: mirror*
+*
+* @param[in] name ID of name
+* @param[in] portsName ID of ports_name
+* @param[in] value Name of the mirror interface
+*
+* Responses:
+*
+*/
+void
+RouterApiImpl::update_router_ports_mirror_by_id(const std::string &name, const std::string &portsName, const std::string &value) {
+  auto router = get_cube(name);
+  auto ports = router->getPorts(portsName);
+
+  ports->setMirror(value);
+}
+
+
+
+
+/**
 * @brief   Update netmask by ID
 *
 * Update operation of resource: netmask*
@@ -1460,4 +1505,3 @@ RouterApiImpl::update_router_route_pathcost_by_id(const std::string &name, const
 }
 }
 }
-

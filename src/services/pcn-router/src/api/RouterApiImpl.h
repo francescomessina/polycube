@@ -79,6 +79,7 @@ public:
   std::vector<PortsJsonObject> read_router_ports_list_by_id(const std::string &name);
   std::vector<nlohmann::fifo_map<std::string, std::string>> read_router_ports_list_by_id_get_list(const std::string &name);
   std::string read_router_ports_mac_by_id(const std::string &name, const std::string &portsName);
+  std::string read_router_ports_mirror_by_id(const std::string &name, const std::string &portsName);
   std::string read_router_ports_netmask_by_id(const std::string &name, const std::string &portsName);
   std::string read_router_ports_peer_by_id(const std::string &name, const std::string &portsName);
   PortsSecondaryipJsonObject read_router_ports_secondaryip_by_id(const std::string &name, const std::string &portsName, const std::string &ip, const std::string &netmask);
@@ -113,6 +114,7 @@ public:
   void update_router_ports_ip_by_id(const std::string &name, const std::string &portsName, const std::string &value);
   void update_router_ports_list_by_id(const std::string &name, const std::vector<PortsJsonObject> &value);
   void update_router_ports_mac_by_id(const std::string &name, const std::string &portsName, const std::string &value);
+  void update_router_ports_mirror_by_id(const std::string &name, const std::string &portsName, const std::string &value);
   void update_router_ports_netmask_by_id(const std::string &name, const std::string &portsName, const std::string &value);
   void update_router_ports_peer_by_id(const std::string &name, const std::string &portsName, const std::string &value);
   void update_router_ports_secondaryip_by_id(const std::string &name, const std::string &portsName, const std::string &ip, const std::string &netmask, const PortsSecondaryipJsonObject &value);
@@ -131,4 +133,3 @@ private:
 }
 }
 }
-

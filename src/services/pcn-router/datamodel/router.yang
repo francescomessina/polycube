@@ -25,14 +25,12 @@ module router {
      augment ports {
        leaf ip {
         type inet:ipv4-address;
-        mandatory true;
         description "IP address of the port";
         router:cli-example "207.46.130.1";
       }
 
       leaf netmask {
         type inet:ipv4-address;
-        mandatory true;
         description "Netmask of the port";
         router:cli-example "255.255.255.0";
       }
@@ -59,6 +57,12 @@ module router {
         type yang:mac-address;
         description "MAC address of the port";
         router:cli-example "B3:23:45:F5:3A";
+      }
+
+      leaf mirror {
+        type string;
+        description "Name of the mirror interface";
+        router:cli-example "veth0";
       }
     }
   }

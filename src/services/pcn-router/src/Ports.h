@@ -111,13 +111,19 @@ public:
   /// </summary>
   std::string getUuid() override;
 
+  /// <summary>
+  /// Name of the mirror interface
+  /// </summary>
+  std::string getMirror() override;
+  void setMirror(const std::string &value) override;
+
 private:
   Router &parent_;
 
   std::string mac_;
   std::string ip_;
   std::string netmask_;
+  std::string mirror_;
 
   std::set<PortsSecondaryip> secondary_ips_;
 };
-

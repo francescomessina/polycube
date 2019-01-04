@@ -127,6 +127,13 @@ public:
   bool macIsSet() const;
   void unsetMac();
 
+  /// <summary>
+  /// Name of the mirror interface
+  /// </summary>
+  std::string getMirror() const;
+  void setMirror(std::string value);
+  bool mirrorIsSet() const;
+  void unsetMirror();
 
 protected:
   std::string m_name;
@@ -145,12 +152,13 @@ protected:
   bool m_secondaryipIsSet;
   std::string m_mac;
   bool m_macIsSet;
+  std::string m_mirror;
+  bool m_mirrorIsSet;
 
-  std::vector<std::string> allowedParameters_{ "name", "uuid", "status", "peer", "ip", "netmask", "secondaryip", "mac" };
+  std::vector<std::string> allowedParameters_{ "name", "uuid", "status", "peer", "ip", "netmask", "secondaryip", "mac", "mirror" };
 };
 
 }
 }
 }
 }
-

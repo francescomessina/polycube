@@ -81,5 +81,10 @@ public:
   /// </summary>
   virtual std::string getMac() = 0;
   virtual void setMac(const std::string &value) = 0;
-};
 
+  /// <summary>
+  /// Name of the mirror interface
+  /// </summary>
+  virtual std::string getMirror() = 0;
+  virtual void setMirror(const std::string &value) = 0;
+};

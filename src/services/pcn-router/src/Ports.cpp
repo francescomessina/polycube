@@ -20,7 +20,7 @@
 
 #include "Ports.h"
 #include "Router.h"
-#include "UtilityMethods.h"
+#include "Utils.h"
 
 Ports::Ports(polycube::service::Cube<Ports> &parent,
              std::shared_ptr<polycube::service::PortIface> port,
@@ -65,7 +65,7 @@ Ports::Ports(polycube::service::Cube<Ports> &parent,
 
   router_port.set(index, value);
 
-  logger()->info("Added new port: {0} (index: {4}) [mac: {1} - ip: {2} - netmask: {3}]",getName(),mac_,ip_,netmask_,index);
+  logger()->info("added new port: {0} (index: {4}) [mac: {1} - ip: {2} - netmask: {3}]",getName(),mac_,ip_,netmask_,index);
   for(auto &addr : secondary_ips)
     logger()->info("\t secondary address: [ip: {0} - netmask: {1}]",addr.getIp(),addr.getNetmask());
 
@@ -94,11 +94,15 @@ void Ports::update(const PortsJsonObject &conf) {
   //This method updates all the object/parameter in Ports object specified in the conf JsonObject.
   //You can modify this implementation.
 
-  logger()->info("Updating port");
+  logger()->info("updating port");
 
+  if (conf.ipIsSet()) {
     setIp(conf.getIp());
+  }
 
+  if (conf.netmaskIsSet()) {
     setNetmask(conf.getNetmask());
+  }
 
   if(conf.macIsSet()) {
     setMac(conf.getMac());
@@ -108,8 +112,8 @@ void Ports::update(const PortsJsonObject &conf) {
     setPeer(conf.getPeer());
   }
 
-  if(conf.secondaryipIsSet()) {
-    for(auto &i : conf.getSecondaryip()){
+  if (conf.secondaryipIsSet()) {
+    for (auto &i : conf.getSecondaryip()) {
       auto ip = i.getIp();
       auto netmask = i.getNetmask();
       auto m = getSecondaryip(ip, netmask);
@@ -117,9 +121,13 @@ void Ports::update(const PortsJsonObject &conf) {
     }
   }
 
+  if (conf.mirrorIsSet()) {
+    setMirror(conf.getMirror());
+  }
+
 }
 
-PortsJsonObject Ports::toJsonObject(){
+PortsJsonObject Ports::toJsonObject() {
   PortsJsonObject conf;
 
 
@@ -137,11 +145,13 @@ PortsJsonObject Ports::toJsonObject(){
 
 
   //Remove comments when you implement all sub-methods
-  for(auto &i : getSecondaryipList()){
+  for (auto &i : getSecondaryipList()) {
     conf.addPortsSecondaryip(i->toJsonObject());
   }
 
   conf.setUuid(getUuid());
+
+  conf.setMirror(getMirror());
 
   return conf;
 }
@@ -157,7 +167,7 @@ void Ports::create(Router &parent, const std::string &name, const PortsJsonObjec
 
 std::shared_ptr<Ports> Ports::getEntry(Router &parent, const std::string &name){
   //This method retrieves the pointer to Ports object specified by its keys.
-  parent.logger()->debug("Getting port: {0}", name);
+  parent.logger()->debug("getting port: {0}", name);
   return parent.get_port(name);
 }
 
@@ -165,7 +175,7 @@ void Ports::removeEntry(Router &parent, const std::string &name){
   //This method removes the single Ports object specified by its keys.
   //Remember to call here the remove static method for all-sub-objects of Ports.
 
-  parent.logger()->info("Remove port {0}", name);
+  parent.logger()->info("remove port {0}", name);
 
 
   auto port = parent.get_port(name);
@@ -177,19 +187,32 @@ void Ports::removeEntry(Router &parent, const std::string &name){
 
   auto router_port = parent.get_hash_table<uint16_t, r_port>("router_port");
 
+  // remove the ArpEntry from the datapath, for this port
+  auto arp_table = parent.get_hash_table<uint32_t, arp_entry>("arp_table");
+  auto arp_entries = arp_table.get_all();
+  for (auto &entry : arp_entries) {
+    auto key = entry.first;
+    auto value = entry.second;
+    auto port = parent.get_port(value.port);
+
+    if (port->name() == name) {
+      arp_table.remove(key);
+    }
+  }
+
   //remove the port from the datapath
   uint16_t index = port->index();
   router_port.remove(index);
-  parent.logger()->debug("Removed from 'router_port' - key: {0}",from_int_to_hex(index));
+  parent.logger()->debug("removed from 'router_port' - key: {0}",from_int_to_hex(index));
 
   parent.remove_port(name);
 
-  parent.logger()->info("Port {0} was removed", name);
+  parent.logger()->info("port {0} was removed", name);
 }
 
 std::vector<std::shared_ptr<Ports>> Ports::get(Router &parent){
   //This methods get the pointers to all the Ports objects in Router.
-  parent.logger()->debug("Getting all the ports");
+  parent.logger()->debug("getting all the ports");
   return parent.get_ports();
 }
 
@@ -197,7 +220,7 @@ void Ports::remove(Router &parent){
   //This method removes all Ports objects in Router.
   //Remember to call here the remove static method for all-sub-objects of Ports.
 
-  parent.logger()->info("Removing all the ports");
+  parent.logger()->info("removing all the ports");
 
   auto ports = parent.get_ports();
   for (auto it : ports) {
@@ -215,7 +238,7 @@ std::string Ports::getIp(){
 
 void Ports::setIp(const std::string &value){
   //This method set the ip value.
-  throw std::runtime_error("[Ports]: Method setIp not implemented");
+  throw std::runtime_error("method Ports::setIp not implemented");
 }
 
 
@@ -226,7 +249,7 @@ std::string Ports::getNetmask(){
 
 void Ports::setNetmask(const std::string &value){
   //This method set the netmask value.
-  throw std::runtime_error("[Ports]: Method setNetmask not implemented");
+  throw std::runtime_error("method Ports::setNetmask not implemented");
 }
 
 
@@ -237,7 +260,17 @@ std::string Ports::getMac(){
 
 void Ports::setMac(const std::string &value){
   //This method set the mac value.
-  throw std::runtime_error("[Ports]: Method setMac not implemented");
+  throw std::runtime_error("method Ports::setMac not implemented");
+}
+
+std::string Ports::getMirror() {
+  // This method retrieves the mirror value.
+  return mirror_;
+}
+
+void Ports::setMirror(const std::string &value) {
+  // This method set the mirror value.
+  throw std::runtime_error("method Ports::setMirror not implemented");
 }
 
 std::shared_ptr<spdlog::logger> Ports::logger() {

@@ -16,8 +16,8 @@
 #define MANAGER_TYPE io::swagger::server::api::RouterApiImpl
 #define SERVICE_DESCRIPTION "Router Service"
 #define SERVICE_VERSION "2.0"
-#define SERVICE_PYANG_GIT "polycube-new-code-restconf/61f61e9"
-#define SERVICE_SWAGGER_CODEGEN_GIT "new_code_generator/e9e2185"
+#define SERVICE_PYANG_GIT ""
+#define SERVICE_SWAGGER_CODEGEN_GIT "polycube/a0059af8c"
 #define SERVICE_REQUIRED_KERNEL_VERSION "4.15.0"
 const std::string SERVICE_DATA_MODEL = R"POLYCUBE_DM(
 module router {
@@ -48,13 +48,11 @@ module router {
  		augment ports {
  			leaf ip {
 				type inet:ipv4-address;
-				mandatory true;
 				description "IP address of the port";
 				router:cli-example "207.46.130.1";
 			}
 			leaf netmask {
 				type inet:ipv4-address;
-				mandatory true;
 				description "Netmask of the port";
 				router:cli-example "255.255.255.0";
 			}
@@ -79,6 +77,11 @@ module router {
 				description "MAC address of the port";
 				router:cli-example "B3:23:45:F5:3A";
 			}
+			leaf mirror {
+        type string;
+        description "Name of the mirror interface";
+        router:cli-example "veth0";
+      }
 		}
  	}
 
