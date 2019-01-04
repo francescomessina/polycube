@@ -39,6 +39,7 @@
   (sizeof(struct eth_hdr) + sizeof(struct iphdr) + \
    offsetof(struct icmphdr, checksum))
 #define MAC_MULTICAST_MASK 0x1ULL  // network byte order
+#define OSPF 89 // protocol type in the header ip
 enum {
   SLOWPATH_ARP_REPLY = 1,
   SLOWPATH_ARP_LOOKUP_MISS,
@@ -65,6 +66,7 @@ struct r_port {
   __be32 secondary_ip[SECONDARY_ADDRESS];
   __be32 secondary_netmask[SECONDARY_ADDRESS];
   __be64 mac : 48;
+  bool mirror;
 };
 BPF_F_TABLE("lpm_trie", struct rt_k, struct rt_v, routing_table,
             ROUTING_TABLE_DIM, BPF_F_NO_PREALLOC);
@@ -260,8 +262,16 @@ static inline int notify_arp_reply_to_slowpath(struct CTXTYPE *ctx,
   // notify the slowpath. New arp reply received.
   u32 mdata[3];
   mdata[0] = ip_;
-  return pcn_pkt_controller_with_metadata(ctx, md, SLOWPATH_ARP_REPLY,
-                                             mdata);
+  struct r_port *in_port = router_port.lookup(&md->in_port);
+  if (!in_port) {
+    return RX_DROP;
+  }
+  if (in_port->mirror) {
+    // notify slowpath and linux
+    return pcn_pkt_controller_with_metadata_stack(ctx, md, SLOWPATH_ARP_REPLY, mdata);
+  }
+  // notify only slowpath
+  return pcn_pkt_controller_with_metadata(ctx, md, SLOWPATH_ARP_REPLY, mdata);
 }
 static inline int is_ether_mcast(__be64 mac_address) {
   return (mac_address & (__be64)MAC_MULTICAST_MASK);
@@ -277,7 +287,6 @@ static int handle_rx(struct CTXTYPE *ctx, struct pkt_metadata *md) {
 
   struct r_port *in_port = router_port.lookup(&md->in_port);
   if (!in_port) {
-    pcn_log(ctx, LOG_ERR, "received packet from non valid port: %d", md->in_port);
     goto DROP;
   }
 /*
@@ -309,11 +318,19 @@ IP:;  // ipv4 packet
   struct rt_k k = {32, ip->daddr};
   struct rt_v *rt_entry_p = routing_table.lookup(&k);
   if (!rt_entry_p) {
+    // ckeck if is ospf packet
+    if (ip->protocol == OSPF) {
+      goto CKECK;
+    }
     pcn_log(ctx, LOG_TRACE, "no routing table match for %I", ip->daddr);
     goto DROP;
   }
   /* Check if the pkt destination is one local interface of the router */
-  if(rt_entry_p->type==TYPE_LOCALINTERFACE) {
+  if (rt_entry_p->type==TYPE_LOCALINTERFACE) {
+    if (in_port->mirror) {
+      pcn_log(ctx, LOG_TRACE, "in_port %d ip_src %I ip_dest %I", md->in_port, ip->saddr, ip->daddr);
+      return RX_OK;
+    }
     return send_packet_for_router_to_slowpath(ctx, md, eth, ip);
   }
   if (ip->ttl == 1) {
@@ -340,5 +357,11 @@ ARP:;  // arp packet
   return RX_DROP;
 DROP:
   pcn_log(ctx, LOG_TRACE, "in: %d out: -- DROP", md->in_port);
+  return RX_DROP;
+CKECK:
+  if (in_port->mirror) {
+    pcn_log(ctx, LOG_TRACE, "in_port %d, proto:OSPF ip_src %I ip_dest %I ", md->in_port, ip->saddr, ip->daddr);
+    return RX_OK;
+  }
   return RX_DROP;
 }
