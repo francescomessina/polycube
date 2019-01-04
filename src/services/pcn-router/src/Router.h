@@ -180,6 +180,15 @@ public:
 
   bool check_ports_in_the_same_network(const std::string &ip, const std::string &netmask);
 
+  /* netlink */
+  polycube::polycubed::Netlink netlink_instance;
+  int netlink_notification_index_route_added;
+  int netlink_notification_index_route_deleted;
+  int netlink_notification_index_link_deleted;
+  void netlink_notification_route_added(int ifindex, const std::string &info_route);
+  void netlink_notification_route_deleted(int ifindex, const std::string &info_route);
+  void netlink_notification_link_deleted(int ifindex, const std::string &iface);
+
 private:
   // The following variables have been added by hand
   std::map<std::tuple<std::string, std::string, std::string>, Route>  routes_;

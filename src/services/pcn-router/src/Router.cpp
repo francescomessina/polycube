@@ -35,15 +35,41 @@ Router::Router(const std::string name, const RouterJsonObject &conf,
                CubeType type)
   : Cube(name, {generate_code()}, {}, type, conf.getPolycubeLoglevel()) {
   logger()->set_pattern("[%Y-%m-%d %H:%M:%S.%e] [Router] [%n] [%l] %v");
-  logger()->info("Creating Router instance");
+  logger()->info("creating Router instance");
 
   addArpEntryList(conf.getArpEntry());
   addRouteList(conf.getRoute());
 
   addPortsList(conf.getPorts());
+
+  // netlink notification
+  netlink_notification_index_route_added = netlink_instance.registerObserver(
+    polycube::polycubed::Netlink::Event::ROUTE_ADDED,
+    std::bind(&Router::netlink_notification_route_added, this,
+              std::placeholders::_1, std::placeholders::_2));
+
+  netlink_notification_index_route_deleted = netlink_instance.registerObserver(
+    polycube::polycubed::Netlink::Event::ROUTE_DELETED,
+    std::bind(&Router::netlink_notification_route_deleted, this,
+              std::placeholders::_1, std::placeholders::_2));
+
+  netlink_notification_index_link_deleted = netlink_instance.registerObserver(
+    polycube::polycubed::Netlink::Event::LINK_DELETED,
+    std::bind(&Router::netlink_notification_link_deleted, this,
+              std::placeholders::_1, std::placeholders::_2));
 }
 
-Router::~Router() { }
+Router::~Router() {
+  netlink_instance.unregisterObserver(
+      polycube::polycubed::Netlink::Event::ROUTE_ADDED,
+      netlink_notification_index_route_added);
+  netlink_instance.unregisterObserver(
+      polycube::polycubed::Netlink::Event::ROUTE_DELETED,
+      netlink_notification_index_route_deleted);
+  netlink_instance.unregisterObserver(
+      polycube::polycubed::Netlink::Event::LINK_DELETED,
+      netlink_notification_index_link_deleted);
+}
 
 void Router::update(const RouterJsonObject &conf) {
   //This method updates all the object/parameter in Router object specified in the conf JsonObject.
@@ -913,4 +939,125 @@ bool Router::check_ports_in_the_same_network(const std::string &ip, const std::s
     }
   }
   return false;
+}
+
+void Router::netlink_notification_route_added(int ifindex, const std::string &info_route) {
+  std::lock_guard<std::mutex> guard(router_mutex);
+
+  char name_interface_tmp[50];
+  if_indextoname(ifindex, name_interface_tmp);
+  std::string name_interface(name_interface_tmp);
+
+  if (check_interface_is_mirror(name_interface)) {
+    logger()->info("netlink notification received, route add for interface: {0}",
+        name_interface);
+
+    // update the routing table
+    // info_route = network/netmasklength/gateway
+    std::istringstream split(info_route);
+    std::vector<std::string> info;
+
+    char split_char = '/';
+    for (std::string each; std::getline(split, each, split_char);
+         info.push_back(each))
+      ;
+    std::string network = info[0];
+    std::string netmask_len = info[1];
+    std::string gateway = info[2];
+
+    if (gateway == "-") {
+      gateway = "0.0.0.0";
+    }
+
+    std::unordered_map<std::string, std::string>::const_iterator it =
+        mirror_interfaces.find(name_interface);
+    std::string port_name = it->second;
+
+    // find index port
+    int index = -1;
+    auto ports = get_ports();
+    for (auto it : ports) {
+      if (it->name() == port_name) {
+        index = it->index();
+        break;
+      }
+    }
+    if (index != -1) {
+      // es : add_linux_route("30.30.30.0", "24","10.1.1.1", "port1",
+      // index_port);
+      add_linux_route(network, netmask_len, gateway, port_name, index);
+    }
+  }
+}
+
+void Router::netlink_notification_route_deleted(int ifindex, const std::string &info_route) {
+  std::lock_guard<std::mutex> guard(router_mutex);
+
+  char name_interface_tmp[50];
+  if_indextoname(ifindex, name_interface_tmp);
+  std::string name_interface(name_interface_tmp);
+
+  if (check_interface_is_mirror(name_interface)) {
+    logger()->info("netlink notification received, route delete for interface: {0}",
+        name_interface);
+
+    // update the routing table
+    // info_route = network/netmasklength/gateway
+    std::istringstream split(info_route);
+    std::vector<std::string> info;
+
+    char split_char = '/';
+    for (std::string each; std::getline(split, each, split_char);
+         info.push_back(each))
+      ;
+    std::string network = info[0];
+    std::string netmask_len = info[1];
+    std::string gateway = info[2];
+
+    if (gateway == "-") {
+      gateway = "0.0.0.0";
+    }
+
+    std::unordered_map<std::string, std::string>::const_iterator it =
+        mirror_interfaces.find(name_interface);
+    std::string port_name = it->second;
+
+    std::string netmask = get_netmask_from_CIDR(std::stoi(netmask_len));
+
+    // find ip port
+    std::string ip = "";
+    auto ports = get_ports();
+    for (auto it : ports) {
+      if (it->name() == port_name) {
+        ip = it->getIp();
+        break;
+      }
+    }
+
+    if (address_in_subnet(ip, netmask, network)) {
+      // the Ip has changed, delete the port (it is not the best solution)
+      logger()->info("inconsistent information on the port {0} (the ip has been changed)", port_name);
+      remove_all_routes_for_interface(port_name);
+      Ports::removeEntry(*this, port_name);
+      mirror_interfaces.erase(it);
+    } else {
+      remove_route(network, netmask, gateway);
+    }
+  }
+}
+
+void Router::netlink_notification_link_deleted(int ifindex, const std::string &iface) {
+  std::lock_guard<std::mutex> guard(router_mutex);
+
+  if (check_interface_is_mirror(iface)) {
+    logger()->info("netlink notification received, link {0} delete", iface);
+
+    std::unordered_map<std::string, std::string>::const_iterator it = mirror_interfaces.find(iface);
+    std::string port_name = it->second;
+
+    remove_all_routes_for_interface(port_name);
+
+    Ports::removeEntry(*this, port_name);
+    mirror_interfaces.erase(it);
+  }
 }
