@@ -116,3 +116,180 @@ bool is_netmask_valid(const std::string &netmask) {
     return true;
   }
 }
+
+std::string get_netmask_from_CIDR(const int cidr) {
+  uint32_t ipv4Netmask;
+
+  ipv4Netmask = 0xFFFFFFFF;
+  ipv4Netmask <<= 32 - cidr;
+  ipv4Netmask = ntohl(ipv4Netmask);
+  struct in_addr addr = {ipv4Netmask};
+
+  return inet_ntoa(addr);
+}
+
+std::string read_routing_table_linux() {
+  // variable to be returned
+  std::string routing_table_linux;
+
+  // buffer to hold the RTNETLINK request
+  struct {
+    struct nlmsghdr nl;
+    struct rtmsg rt;
+    char buf[8192];
+  } req;
+
+  // variables used for socket communications
+  int sock;
+  struct sockaddr_nl la;
+  struct sockaddr_nl pa;
+  struct msghdr msg;
+  struct iovec iov;
+  int rtn;
+
+  // buffer to hold the RTNETLINK reply(ies)
+  char buf[8192];
+
+  // RTNETLINK message pointers and lengths used when processing messages
+  struct nlmsghdr *nlp;
+  int nll;
+  struct rtmsg *rtp;
+  int rtl;
+  struct rtattr *rtap;
+
+  // open netlink socket;
+  sock = socket(AF_NETLINK, SOCK_RAW, NETLINK_ROUTE);
+
+  // setup local address and bind using this address
+  bzero(&la, sizeof(la));
+  la.nl_family = AF_NETLINK;
+  la.nl_pid = getpid();
+  bind(sock, (struct sockaddr *)&la, sizeof(la));
+
+  // form request for the linux routing table
+  // initialize the request buffer
+  bzero(&req, sizeof(req));
+
+  // set the NETLINK header
+  req.nl.nlmsg_len = NLMSG_LENGTH(sizeof(struct rtmsg));
+  req.nl.nlmsg_flags = NLM_F_REQUEST | NLM_F_DUMP;
+  req.nl.nlmsg_type = RTM_GETROUTE;
+
+  // set the routing message header
+  req.rt.rtm_family = AF_INET;
+  req.rt.rtm_table = RT_TABLE_MAIN;
+
+  // create the remote address to communicate
+  bzero(&pa, sizeof(pa));
+  pa.nl_family = AF_NETLINK;
+
+  // initialize and create the struct msghdr supplied to the sendmsg() function
+  bzero(&msg, sizeof(msg));
+  msg.msg_name = (void *)&pa;
+  msg.msg_namelen = sizeof(pa);
+
+  // place the pointer and size of the RTNETLINK
+  // message in the struct msghdr
+  iov.iov_base = (void *)&req.nl;
+  iov.iov_len = req.nl.nlmsg_len;
+  msg.msg_iov = &iov;
+  msg.msg_iovlen = 1;
+
+  // send the RTNETLINK message to kernel
+  rtn = sendmsg(sock, &msg, 0);
+
+  // receive reply after form_request
+  // initialize the socket read buffer
+  bzero(buf, sizeof(buf));
+
+  char *p;
+  p = buf;
+  nll = 0;
+
+  // read from the socket until the NLMSG_DONE is returned
+  while (1) {
+    rtn = recv(sock, p, sizeof(buf) - nll, 0);
+
+    nlp = (struct nlmsghdr *)p;
+
+    if (nlp->nlmsg_type == NLMSG_DONE)
+      break;
+
+    // increment the buffer pointer to place next message
+    p += rtn;
+
+    // increment the total size by the size of the last received message
+    nll += rtn;
+
+    if ((la.nl_groups & RTMGRP_IPV4_ROUTE) == RTMGRP_IPV4_ROUTE)
+      break;
+  }
+
+  // strings to hold content of the route table
+  char dsts[24], gws[24], ifs[16], ms[24];
+
+  // outer loop: loops thru all the NETLINK headers that also include the route
+  // entry header
+  nlp = (struct nlmsghdr *)buf;
+  for (; NLMSG_OK(nlp, nll); nlp = NLMSG_NEXT(nlp, nll)) {
+    // get route entry header
+    rtp = (struct rtmsg *)NLMSG_DATA(nlp);
+
+    // we are only concerned about the main route table
+    if (rtp->rtm_table != RT_TABLE_MAIN)
+      continue;
+
+    // init all the strings
+    bzero(dsts, sizeof(dsts));
+    bzero(gws, sizeof(gws));
+    bzero(ifs, sizeof(ifs));
+    bzero(ms, sizeof(ms));
+
+    // inner loop: loop thru all the attributes of one route entry
+    rtap = (struct rtattr *)RTM_RTA(rtp);
+    rtl = RTM_PAYLOAD(nlp);
+    for (; RTA_OK(rtap, rtl); rtap = RTA_NEXT(rtap, rtl)) {
+      switch (rtap->rta_type) {
+      // destination IPv4 address
+      case RTA_DST:
+        inet_ntop(AF_INET, RTA_DATA(rtap), dsts, 24);
+        break;
+
+      // next hop IPv4 address
+      case RTA_GATEWAY:
+        inet_ntop(AF_INET, RTA_DATA(rtap), gws, 24);
+        break;
+
+      // unique ID associated with the network interface
+      case RTA_OIF:
+        sprintf(ifs, "%d", *((int *)RTA_DATA(rtap)));
+      default:
+        break;
+      }
+    }
+    sprintf(ms, "%d", rtp->rtm_dst_len);
+
+    char temp[200];
+    char name_interface[20];
+    if_indextoname(std::stoi(ifs), name_interface);
+
+    std::string dest(dsts);
+    if (dest == "") {
+      sprintf(dsts, "0.0.0.0");
+      sprintf(ms, "0");
+    }
+
+    std::string gw(gws);
+    if (gw == "") {
+      sprintf(gws, "0.0.0.0");
+    }
+    sprintf(temp, "%s %s %s %s %s\n", name_interface, ifs, dsts, ms, gws);
+
+    routing_table_linux.append(temp);
+  }
+
+  // close socket
+  close(sock);
+
+  return routing_table_linux;
+}

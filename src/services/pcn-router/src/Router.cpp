@@ -711,3 +711,206 @@ void Router::generate_arp_reply(Port &port, PacketInMetadata &md,
   }
   mu.unlock();
 }
+
+PortsJsonObject Router::attachInterface(const PortsJsonObject &conf) {
+  std::lock_guard<std::mutex> guard(router_mutex);
+
+  PortsJsonObject conf_ret;
+  std::string port_name = conf.getName();
+  std::string interface = conf.getMirror();
+  std::string ipv4_addr;
+
+  auto ifaces = polycube::polycubed::Netlink::getInstance().get_available_ifaces();
+  for (auto &it : ifaces) {
+    auto name = it.second.get_name();
+    if (name == interface) {
+      logger()->debug("the interface exists, mirror can be done");
+      mirror_interfaces.insert({interface, port_name});
+
+      // Find ip address
+      ipv4_addr = "-";
+      for (auto addr : it.second.get_addresses()) {
+        std::stringstream ss(addr);
+        std::string item;
+        std::vector<std::string> splittedStrings;
+        while (std::getline(ss, item, '/')) {
+          splittedStrings.push_back(item);
+        }
+
+        unsigned char buf[sizeof(struct in_addr)];
+        int ip = inet_pton(AF_INET, splittedStrings[0].c_str(), buf);
+        if (ip == 1) {
+          // set ip
+          conf_ret.setIp(splittedStrings[0]);
+          // set netmask
+          conf_ret.setNetmask(get_netmask_from_CIDR(std::stoi(splittedStrings[1])));
+          // break when find first ipv4 address
+          break;
+        }
+      }
+
+      conf_ret.setName(port_name);
+      conf_ret.setMirror(interface);
+      conf_ret.setPeer(interface);
+
+      // Find mac address
+      unsigned char mac[IFHWADDRLEN];
+      int i;
+
+      struct ifreq ifr;
+      int fd;
+      int rv;  // return value
+
+      // determines the MAC address
+      strcpy(ifr.ifr_name, interface.c_str());
+      fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_IP);
+      if (fd < 0) {
+        logger()->error("error opening socket: {0}", std::strerror(errno));
+        return conf_ret;
+      } else {
+        rv = ioctl(fd, SIOCGIFHWADDR, &ifr);
+        if (rv >= 0)  // ok
+          memcpy(mac, ifr.ifr_hwaddr.sa_data, IFHWADDRLEN);
+        else {
+          logger()->error("error determining the MAC address: {0}", std::strerror(errno));
+          close(fd);
+          return conf_ret;
+        }
+      }
+      close(fd);
+
+      uint64_t mac_;
+      memcpy(&mac_, mac, sizeof mac_);
+      conf_ret.setMac(polycube::service::utils::be_uint_to_mac_string(mac_));
+
+      break;  // break because found interface with that name
+    }
+  }
+  return conf_ret;
+}
+
+// Add linux route to the routing table
+void Router::add_linux_route(const std::string &network,
+                             const std::string &netmask_length,
+                             const std::string &nexthop,
+                             const std::string &port_name,
+                             const int port_index) {
+  // Add the network reachable through the inteface
+  uint32_t nmask_lenght = std::stoi(netmask_length);
+  auto routing_table = get_hash_table<rt_k, rt_v>("routing_table");
+
+  rt_k key{
+      .netmask_len = nmask_lenght,
+      .network = ip_string_to_be_uint(network),
+  };
+
+  try {
+    rt_v value1 = routing_table.get(key);
+
+    if (value1.nexthop == ip_string_to_be_uint(nexthop)) {
+      logger()->trace("this route already exists, it is not added");
+      return;
+    } else
+      logger()->trace("route not found in the data path");
+  } catch (...) {
+    logger()->trace("route not found in the data path");
+  }
+
+  // add route because not found in the data path
+  rt_v value{
+      .port = uint32_t(port_index),
+      .nexthop = ip_string_to_be_uint(nexthop),
+      .type = TYPE_NOLOCALINTERFACE,
+  };
+
+  routing_table.set(key, value);
+
+  std::string interface_netmask =
+      get_netmask_from_CIDR(std::stoi(netmask_length));
+
+  logger()->info("added linux route [network: {0} - netmask: {1} - nexthop: {2} - interface: {3}]",
+                  network, interface_netmask, nexthop, port_name);
+
+  // Add the route in the table of the control plane
+  std::tuple<string, string, string> keyF(network, interface_netmask, nexthop);
+  uint32_t pathcost = 1;
+
+  routes_.emplace(std::piecewise_construct, std::forward_as_tuple(keyF),
+                  std::forward_as_tuple(*this, network, interface_netmask,
+                                        nexthop, port_name, pathcost));
+}
+
+// delete all routes for this interface
+void Router::remove_all_routes_for_interface(const std::string &port_name) {
+  if (routes_.size() == 0) {
+    throw std::runtime_error("No entry found in routing table");
+  }
+
+  logger()->debug("the routing table in the control plane has {0} entries",
+                 routes_.size());
+
+  auto routing_table = get_hash_table<rt_k, rt_v>("routing_table");
+
+  for (auto it = routes_.begin(); it != routes_.end();) {
+    // check name port
+    if (it->second.getInterface() == port_name) {
+      if ((it->second.getNexthop()) != "local") {
+        std::string network = it->second.getNetwork();
+        std::string netmask = it->second.getNetmask();
+        std::string nexthop = it->second.getNexthop();
+        routes_.erase(it++);
+        logger()->info(
+            "removed route from control plane [network: {0} - netmask: {1} - "
+            "nexthop: {2}]",
+            network, netmask, nexthop);
+
+        /*retrieve the entry from the fast path for the "netmask" "network",
+         and get the nexthop in order to check whether the route is also in the
+         fast path */
+        try {
+          rt_k key{
+              .netmask_len = get_netmask_length(netmask),
+              .network = ip_string_to_be_uint(network),
+          };
+
+          rt_v value = routing_table.get(key);
+
+          if (value.nexthop == ip_string_to_be_uint(nexthop)) {
+            /* the nexthop in the fast path corresponds to that just removed
+             in the control path then, the entry in the fast path is removed */
+            logger()->debug("route found in the data path");
+            routing_table.remove(key);
+          } else
+            logger()->debug("route not found in the data path");
+        } catch (...) {
+          logger()->debug("route not found in the data path");
+        }
+      } else {
+        it++;
+      }
+    } else {
+      logger()->debug(
+          "route not removed, it is not of this interface [network: {0} - "
+          "netmask: {1} - nexthop: {2}]",
+          it->second.getNetwork(), it->second.getNetmask(),
+          it->second.getNexthop());
+      it++;
+    }
+  }
+}
+
+bool Router::check_interface_is_mirror(const std::string &name_interface) {
+  return mirror_interfaces.find(name_interface) != mirror_interfaces.end();
+}
+
+bool Router::check_ports_in_the_same_network(const std::string &ip, const std::string &netmask) {
+  // check all the ports
+  auto ports = get_ports();
+  for (auto it : ports) {
+    // check if the port is in the same network
+    if (address_in_subnet(ip, netmask, get_network_from_ip(it->getIp(), it->getNetmask()))) {
+      return true;
+    }
+  }
+  return false;
+}

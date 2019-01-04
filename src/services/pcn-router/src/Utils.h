@@ -14,6 +14,17 @@
  * limitations under the License.
  */
 
+#pragma once
+
+#include <arpa/inet.h>
+#include <asm/types.h>
+#include <bits/sockaddr.h>
+#include <linux/netlink.h>
+#include <linux/rtnetlink.h>
+#include <net/if.h>
+#include <sys/socket.h>
+#include <string>
+
 /*utility methods*/
 
 std::string from_int_to_hex(int t);
@@ -28,3 +39,6 @@ std::string get_network_from_ip(const std::string &ip, const std::string &netmas
 
 bool is_netmask_valid(const std::string &netmask);
 
+std::string read_routing_table_linux();
+
+std::string get_netmask_from_CIDR(const int cidr);
