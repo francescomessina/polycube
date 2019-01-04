@@ -16,6 +16,7 @@
 
 #include "netlink.h"
 
+#include <arpa/inet.h>
 #include <iostream>
 #include <libbpf.h>
 #include <linux/if.h>
@@ -34,6 +35,7 @@ class Netlink::NetlinkNotification {
     nl_socket_modify_cb(sk, NL_CB_VALID, NL_CB_CUSTOM, recv_func, parent_);
     nl_connect(sk, NETLINK_ROUTE);
     nl_socket_add_memberships(sk, RTNLGRP_LINK, 0);
+    nl_socket_add_memberships(sk, RTNLGRP_IPV4_ROUTE, 0);
 
     parent_->logger->debug("started NetlinkNotification");
 
@@ -103,6 +105,71 @@ class Netlink::NetlinkNotification {
       if (hdr->rta_type == IFLA_IFNAME) {
         parent->notify_link_deleted(iface->ifi_index,
                                     std::string((char *)RTA_DATA(hdr)));
+      }
+    }
+
+    if (nlh->nlmsg_type == RTM_NEWROUTE || nlh->nlmsg_type == RTM_DELROUTE) {
+      /* manage the routing table */
+      struct rtmsg *route_entry; /* This struct represent a route entry in the
+                                    routing table */
+      struct rtattr *route_attribute; /* This struct contain route attributes
+                                         (route type) */
+      int route_attribute_len = 0;
+      unsigned char route_netmask = 0;
+      unsigned char route_protocol = 0;
+      char destination_address[32];
+      char gateway_address[32] = "-";
+      int index = 0;
+      int metrics = 0;
+
+      route_entry = (struct rtmsg *)NLMSG_DATA(nlh);
+
+      /* only the main table */
+      if (route_entry->rtm_table != RT_TABLE_MAIN) {
+        parent->notify_all(0, "");
+        return NL_OK;
+      }
+
+      route_netmask = route_entry->rtm_dst_len;
+      route_protocol = route_entry->rtm_protocol;
+      route_attribute = (struct rtattr *)RTM_RTA(route_entry);
+
+      /* Get the len route attribute */
+      route_attribute_len = RTM_PAYLOAD(nlh);
+
+      /* Loop through all attributes */
+      for (; RTA_OK(route_attribute, route_attribute_len);
+           route_attribute = RTA_NEXT(route_attribute, route_attribute_len)) {
+        /* Route destination address */
+        if (route_attribute->rta_type == RTA_DST) {
+          inet_ntop(AF_INET, RTA_DATA(route_attribute), destination_address,
+                    sizeof(destination_address));
+        }
+
+        /* The gateway of the route */
+        if (route_attribute->rta_type == RTA_GATEWAY) {
+          inet_ntop(AF_INET, RTA_DATA(route_attribute), gateway_address,
+                    sizeof(gateway_address));
+        }
+
+        /* Output interface index */
+        if (route_attribute->rta_type == RTA_OIF) {
+          int *in = (int *)RTA_DATA(route_attribute);
+          index = (int)*in;
+        }
+      }
+
+      /* Write the route information to a string (separated by '/').
+         This string will be passed to the notify method */
+      std::ostringstream inf_r;
+      int net_len = route_netmask;
+      inf_r << destination_address << "/" << net_len << "/" << gateway_address;
+      std::string info_route = inf_r.str();
+
+      if (nlh->nlmsg_type == RTM_DELROUTE) {
+        parent->notify_route_deleted(index, info_route);
+      } else if (nlh->nlmsg_type == RTM_NEWROUTE) {
+        parent->notify_route_added(index, info_route);
       }
     }
 
@@ -470,6 +537,18 @@ void Netlink::notify_link_deleted(int ifindex, const std::string &iface) {
 void Netlink::notify_all(int ifindex, const std::string &iface) {
   logger->debug("received netlink notification");
   notify(Netlink::Event::ALL, ifindex, iface);
+}
+
+void Netlink::notify_route_added(int ifindex, const std::string &info_route) {
+  logger->debug("received notification route added {0} with ifindex {1}",
+                info_route, ifindex);
+  notify(Netlink::Event::ROUTE_ADDED, ifindex, info_route);
+}
+
+void Netlink::notify_route_deleted(int ifindex, const std::string &info_route) {
+  logger->debug("received notification route deleted {0} with ifindex {1}",
+                info_route, ifindex);
+  notify(Netlink::Event::ROUTE_DELETED, ifindex, info_route);
 }
 
 void Netlink::attach_to_xdp(const std::string &iface, int fd, int attach_flags){
