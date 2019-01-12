@@ -1061,3 +1061,14 @@ void Router::netlink_notification_link_deleted(int ifindex, const std::string &i
     mirror_interfaces.erase(it);
   }
 }
+
+bool Router::checkNamePort(const std::string &port_name) {
+  auto ifaces = polycube::polycubed::Netlink::getInstance().get_available_ifaces();
+  for (auto &it : ifaces) {
+    auto name = it.second.get_name();
+    if (name == port_name) {
+      return true;
+    }
+  }
+  return false;
+}

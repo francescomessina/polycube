@@ -30,12 +30,23 @@ Ports::Ports(polycube::service::Cube<Ports> &parent,
 
   std::string routing_table_linux;
 
+  // Check if port_name exist in Linux
+  bool isMirror = parent_.checkNamePort(conf.getName());
+
   // Check if it is a mirror port
-  if (conf.mirrorIsSet()) {
+  if (conf.mirrorIsSet() || isMirror) {
     logger()->debug("it is a mirror port");
 
+    PortsJsonObject conf_ret;
     // Get the interface parameters
-    PortsJsonObject conf_ret = parent_.attachInterface(conf);
+    if (isMirror) {
+      PortsJsonObject conf_;
+      conf_.setName(conf.getName());
+      conf_.setMirror(conf.getName());
+      conf_ret = parent_.attachInterface(conf_);
+    } else {
+      conf_ret = parent_.attachInterface(conf);
+    }
 
     // Check if the interface can be mirrored
     if (!(conf_ret.ipIsSet() && conf_ret.macIsSet() && conf_ret.mirrorIsSet() &&

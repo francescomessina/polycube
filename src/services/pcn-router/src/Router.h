@@ -168,6 +168,8 @@ public:
   std::unordered_map<std::string, std::string> mirror_interfaces;
   PortsJsonObject attachInterface(const PortsJsonObject &conf);
 
+  bool checkNamePort(const std::string &port_name);
+
   void add_linux_route(const std::string &network,
                        const std::string &netmask_length,
                        const std::string &nexthop,
