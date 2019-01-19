@@ -57,6 +57,11 @@ Router::Router(const std::string name, const RouterJsonObject &conf,
     polycube::polycubed::Netlink::Event::LINK_DELETED,
     std::bind(&Router::netlink_notification_link_deleted, this,
               std::placeholders::_1, std::placeholders::_2));
+
+  netlink_notification_index_new_address = netlink_instance.registerObserver(
+    polycube::polycubed::Netlink::Event::NEW_ADDRESS,
+    std::bind(&Router::netlink_notification_new_address, this,
+              std::placeholders::_1, std::placeholders::_2));
 }
 
 Router::~Router() {
@@ -69,6 +74,9 @@ Router::~Router() {
   netlink_instance.unregisterObserver(
       polycube::polycubed::Netlink::Event::LINK_DELETED,
       netlink_notification_index_link_deleted);
+  netlink_instance.unregisterObserver(
+      polycube::polycubed::Netlink::Event::NEW_ADDRESS,
+      netlink_notification_index_new_address);
 }
 
 void Router::update(const RouterJsonObject &conf) {
@@ -1018,31 +1026,14 @@ void Router::netlink_notification_route_deleted(int ifindex, const std::string &
       gateway = "0.0.0.0";
     }
 
-    std::unordered_map<std::string, std::string>::const_iterator it =
-        mirror_interfaces.find(name_interface);
-    std::string port_name = it->second;
-
     std::string netmask = get_netmask_from_CIDR(std::stoi(netmask_len));
 
-    // find ip port
-    std::string ip = "";
-    auto ports = get_ports();
-    for (auto it : ports) {
-      if (it->name() == port_name) {
-        ip = it->getIp();
-        break;
-      }
-    }
+    // remove route
+    std::tuple<string,string,string> key (network, netmask, gateway);
 
-    if (address_in_subnet(ip, netmask, network)) {
-      // the Ip has changed, delete the port (it is not the best solution)
-      logger()->info("inconsistent information on the port {0} (the ip has been changed)", port_name);
-      remove_all_routes_for_interface(port_name);
-      Ports::removeEntry(*this, port_name);
-      mirror_interfaces.erase(it);
-    } else {
-      remove_route(network, netmask, gateway);
-    }
+    if (routes_.count(key) != 0)
+      routes_.erase(key);
+
   }
 }
 
@@ -1059,6 +1050,59 @@ void Router::netlink_notification_link_deleted(int ifindex, const std::string &i
 
     Ports::removeEntry(*this, port_name);
     mirror_interfaces.erase(it);
+  }
+}
+
+void Router::netlink_notification_new_address(int ifindex, const std::string &info_address) {
+  std::lock_guard<std::mutex> guard(router_mutex);
+
+  // info_address = ip_address/netmask_len
+  std::istringstream split(info_address);
+  std::vector<std::string> info;
+
+  char split_char = '/';
+  for (std::string each; std::getline(split, each, split_char);
+       info.push_back(each));
+  std::string new_address = info[0];
+  std::string new_netmask = get_netmask_from_CIDR(std::stoi(info[1]));
+
+  char name_interface_tmp[50];
+  if_indextoname(ifindex, name_interface_tmp);
+  std::string name_interface(name_interface_tmp);
+
+  if (check_interface_is_mirror(name_interface)) {
+    logger()->info("netlink notification received, new address {0} on the interface {1}", info_address, name_interface);
+
+    std::unordered_map<std::string, std::string>::const_iterator it =
+        mirror_interfaces.find(name_interface);
+    std::string port_name = it->second;
+
+    uint16_t index;
+    auto ports = get_ports();
+    for (auto it : ports) {
+      if (it->name() == port_name) {
+        index = it->index();
+        std::string network = get_network_from_ip(it->getIp(), it->getNetmask());
+        // remove all routes local and not local
+        for (auto it2 = routes_.begin(); it2 != routes_.end();) {
+          if (it2->second.getInterface() == port_name &&
+              it2->second.getNetwork() == network) {
+            routes_.erase(it2++); //remove the route from the control plane
+            logger()->debug("removed local route from the control plane [network: {0} - netmask: {1} - nexthop: {2} - interface: {3}]",
+                            network, it->getNetmask(), "0.0.0.0", port_name);
+            break;
+          }
+          else
+            ++it2;
+        }
+
+        // change IP address and netmask of the port
+        it->setIp(new_address);
+        it->setNetmask(new_netmask);
+        add_local_route(new_address, new_netmask, port_name, index);
+        break;
+      }
+    }
   }
 }
 

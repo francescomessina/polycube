@@ -316,7 +316,7 @@ std::string Ports::getIp(){
 
 void Ports::setIp(const std::string &value){
   //This method set the ip value.
-  throw std::runtime_error("method Ports::setIp not implemented");
+  ip_ = value;
 }
 
 
@@ -327,7 +327,7 @@ std::string Ports::getNetmask(){
 
 void Ports::setNetmask(const std::string &value){
   //This method set the netmask value.
-  throw std::runtime_error("method Ports::setNetmask not implemented");
+  netmask_ = value;
 }
 
 

@@ -36,6 +36,7 @@ class Netlink::NetlinkNotification {
     nl_connect(sk, NETLINK_ROUTE);
     nl_socket_add_memberships(sk, RTNLGRP_LINK, 0);
     nl_socket_add_memberships(sk, RTNLGRP_IPV4_ROUTE, 0);
+    nl_socket_add_memberships(sk, RTNLGRP_IPV4_IFADDR, 0);
 
     parent_->logger->debug("started NetlinkNotification");
 
@@ -106,6 +107,30 @@ class Netlink::NetlinkNotification {
         parent->notify_link_deleted(iface->ifi_index,
                                     std::string((char *)RTA_DATA(hdr)));
       }
+    }
+
+    if (nlh->nlmsg_type == RTM_NEWADDR) {
+      struct ifaddrmsg *iface = (struct ifaddrmsg *) NLMSG_DATA(nlh);
+      struct rtattr *hdr = IFA_RTA(iface);
+
+      char address[32];
+      char netmask[32];
+      int rtl = IFA_PAYLOAD(nlh);
+
+      while (rtl && RTA_OK(hdr, rtl)) {
+        if (hdr->rta_type == IFA_LOCAL)
+          inet_ntop(AF_INET, RTA_DATA(hdr), address, sizeof(address));
+        hdr = RTA_NEXT(hdr, rtl);
+      }
+
+      /* Write the new information to a string (separated by '/').
+         This string will be passed to the notify method */
+      int netmask_len = iface->ifa_prefixlen;
+      std::ostringstream inf_new_address;
+      inf_new_address << address << "/" << netmask_len;
+      std::string info_address = inf_new_address.str();
+
+      parent->notify_new_address(iface->ifa_index, info_address);
     }
 
     if (nlh->nlmsg_type == RTM_NEWROUTE || nlh->nlmsg_type == RTM_DELROUTE) {
@@ -549,6 +574,12 @@ void Netlink::notify_route_deleted(int ifindex, const std::string &info_route) {
   logger->debug("received notification route deleted {0} with ifindex {1}",
                 info_route, ifindex);
   notify(Netlink::Event::ROUTE_DELETED, ifindex, info_route);
+}
+
+void Netlink::notify_new_address(int ifindex, const std::string &info_address) {
+  logger->debug("received notification new IP address {0} on ifindex {1}",
+                info_address, ifindex);
+  notify(Netlink::Event::NEW_ADDRESS, ifindex, info_address);
 }
 
 void Netlink::attach_to_xdp(const std::string &iface, int fd, int attach_flags){
