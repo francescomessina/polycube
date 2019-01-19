@@ -186,10 +186,12 @@ public:
   polycube::polycubed::Netlink netlink_instance;
   int netlink_notification_index_route_added;
   int netlink_notification_index_route_deleted;
+  int netlink_notification_index_link_added;
   int netlink_notification_index_link_deleted;
   int netlink_notification_index_new_address;
   void netlink_notification_route_added(int ifindex, const std::string &info_route);
   void netlink_notification_route_deleted(int ifindex, const std::string &info_route);
+  void netlink_notification_link_added(int ifindex, const std::string &iface);
   void netlink_notification_link_deleted(int ifindex, const std::string &iface);
   void netlink_notification_new_address(int ifindex, const std::string &info_address);
 

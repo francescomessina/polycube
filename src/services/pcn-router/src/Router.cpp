@@ -53,6 +53,11 @@ Router::Router(const std::string name, const RouterJsonObject &conf,
     std::bind(&Router::netlink_notification_route_deleted, this,
               std::placeholders::_1, std::placeholders::_2));
 
+  netlink_notification_index_link_added = netlink_instance.registerObserver(
+    polycube::polycubed::Netlink::Event::LINK_ADDED,
+    std::bind(&Router::netlink_notification_link_added, this,
+              std::placeholders::_1, std::placeholders::_2));
+
   netlink_notification_index_link_deleted = netlink_instance.registerObserver(
     polycube::polycubed::Netlink::Event::LINK_DELETED,
     std::bind(&Router::netlink_notification_link_deleted, this,
@@ -71,6 +76,9 @@ Router::~Router() {
   netlink_instance.unregisterObserver(
       polycube::polycubed::Netlink::Event::ROUTE_DELETED,
       netlink_notification_index_route_deleted);
+  netlink_instance.unregisterObserver(
+      polycube::polycubed::Netlink::Event::LINK_ADDED,
+      netlink_notification_index_link_added);
   netlink_instance.unregisterObserver(
       polycube::polycubed::Netlink::Event::LINK_DELETED,
       netlink_notification_index_link_deleted);
@@ -1037,6 +1045,112 @@ void Router::netlink_notification_route_deleted(int ifindex, const std::string &
   }
 }
 
+void Router::netlink_notification_link_added(int ifindex, const std::string &iface) {
+  std::lock_guard<std::mutex> guard(router_mutex);
+
+  if (check_interface_is_mirror(iface)) {
+    logger()->info("netlink notification received, link {0} changed", iface);
+
+    std::unordered_map<std::string, std::string>::const_iterator it_port = mirror_interfaces.find(iface);
+    std::string port_name = it_port->second;
+
+    std::string string_ipv4_addr = "";
+    std::string string_netmask = "";
+    std::string string_mac = "";
+
+    auto ifaces = polycube::polycubed::Netlink::getInstance().get_available_ifaces();
+    for (auto &it : ifaces) {
+      auto name = it.second.get_name();
+      if (name == iface) {
+        // Find ipv4 address
+        for (auto addr : it.second.get_addresses()) {
+          std::stringstream ss(addr);
+          std::string item;
+          std::vector<std::string> splittedStrings;
+          while (std::getline(ss, item, '/')) {
+            splittedStrings.push_back(item);
+          }
+
+          unsigned char buf[sizeof(struct in_addr)];
+          int flag = inet_pton(AF_INET, splittedStrings[0].c_str(), buf);
+          if (flag == 1) {
+            string_ipv4_addr = splittedStrings[0];
+            string_netmask = get_netmask_from_CIDR(std::stoi(splittedStrings[1]));
+            // break when find first ipv4 address
+            break;
+          }
+        }
+
+        // Find mac address
+        unsigned char mac[IFHWADDRLEN];
+        int i;
+
+        struct ifreq ifr;
+        int fd;
+        int rv;  // return value
+
+        // determines the MAC address
+        strcpy(ifr.ifr_name, iface.c_str());
+        fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_IP);
+        if (fd < 0) {
+          logger()->error("error opening socket: {0}", std::strerror(errno));
+        } else {
+          rv = ioctl(fd, SIOCGIFHWADDR, &ifr);
+          if (rv >= 0)  // ok
+            memcpy(mac, ifr.ifr_hwaddr.sa_data, IFHWADDRLEN);
+          else {
+            logger()->error("error determining the MAC address: {0}", std::strerror(errno));
+            close(fd);
+          }
+        }
+        close(fd);
+
+        uint64_t mac_;
+        memcpy(&mac_, mac, sizeof mac_);
+        string_mac = polycube::service::utils::be_uint_to_mac_string(mac_);
+
+        break;  // break because found interface
+      }
+    }
+
+    auto ports = get_ports();
+    for (auto it : ports) {
+      if (it->name() == port_name) {
+        bool flag = false;
+        if (it->getIp() != string_ipv4_addr) {
+          logger()->info("changed IP address on the port {0}", port_name);
+          it->setIp(string_ipv4_addr);
+          flag = true;
+        }
+        if (it->getNetmask() != string_netmask) {
+          logger()->info("changed netmask on the port {0}", port_name);
+          it->setNetmask(string_netmask);
+          flag = true;
+        }
+        if (it->getMac() != string_mac) {
+          logger()->info("chanded mac address on the port {0}", port_name);
+          it->setMac(string_mac);
+        }
+
+        if (flag) {
+          // remove all routes local and not local
+          for (auto it2 = routes_.begin(); it2 != routes_.end();) {
+            if (it2->second.getInterface() == port_name)
+              routes_.erase(it2++); //remove the route from the control plane
+            else
+              ++it2;
+          }
+
+          if (string_ipv4_addr != "" && string_netmask != "")
+            add_local_route(string_ipv4_addr, string_netmask, port_name, it->index());
+
+        }
+        break;
+      }
+    }
+  }
+}
+
 void Router::netlink_notification_link_deleted(int ifindex, const std::string &iface) {
   std::lock_guard<std::mutex> guard(router_mutex);
 
@@ -1082,16 +1196,10 @@ void Router::netlink_notification_new_address(int ifindex, const std::string &in
     for (auto it : ports) {
       if (it->name() == port_name) {
         index = it->index();
-        std::string network = get_network_from_ip(it->getIp(), it->getNetmask());
         // remove all routes local and not local
         for (auto it2 = routes_.begin(); it2 != routes_.end();) {
-          if (it2->second.getInterface() == port_name &&
-              it2->second.getNetwork() == network) {
+          if (it2->second.getInterface() == port_name)
             routes_.erase(it2++); //remove the route from the control plane
-            logger()->debug("removed local route from the control plane [network: {0} - netmask: {1} - nexthop: {2} - interface: {3}]",
-                            network, it->getNetmask(), "0.0.0.0", port_name);
-            break;
-          }
           else
             ++it2;
         }

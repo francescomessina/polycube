@@ -100,6 +100,15 @@ class Netlink::NetlinkNotification {
     Netlink *parent = (Netlink *)arg;
     struct nlmsghdr *nlh = nlmsg_hdr(msg);
 
+    if (nlh->nlmsg_type == RTM_NEWLINK) {
+      struct ifinfomsg *iface = (struct ifinfomsg *)NLMSG_DATA(nlh);
+      struct rtattr *hdr = IFLA_RTA(iface);
+      if (hdr->rta_type == IFLA_IFNAME) {
+        parent->notify_link_added(iface->ifi_index,
+                                    std::string((char *)RTA_DATA(hdr)));
+      }
+    }
+
     if (nlh->nlmsg_type == RTM_DELLINK) {
       struct ifinfomsg *iface = (struct ifinfomsg *)NLMSG_DATA(nlh);
       struct rtattr *hdr = IFLA_RTA(iface);
@@ -550,6 +559,13 @@ std::map<std::string, ExtIfaceInfo> Netlink::get_available_ifaces() {
   nl_cache_free(link_cache);
   nl_socket_free(sock);
   return ifaces;
+}
+
+void Netlink::notify_link_added(int ifindex, const std::string &iface) {
+  logger->debug(
+      "received notification link added with ifindex {0} and name {1}",
+      ifindex, iface);
+  notify(Netlink::Event::LINK_ADDED, ifindex, iface);
 }
 
 void Netlink::notify_link_deleted(int ifindex, const std::string &iface) {

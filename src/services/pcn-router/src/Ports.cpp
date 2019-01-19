@@ -338,7 +338,7 @@ std::string Ports::getMac(){
 
 void Ports::setMac(const std::string &value){
   //This method set the mac value.
-  throw std::runtime_error("method Ports::setMac not implemented");
+  mac_ = value;
 }
 
 std::string Ports::getMirror() {
