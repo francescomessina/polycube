@@ -81,5 +81,10 @@ public:
   /// </summary>
   virtual std::string getMac() = 0;
   virtual void setMac(const std::string &value) = 0;
-};
 
+  /// <summary>
+  /// Name of the shadow interface
+  /// </summary>
+  virtual std::string getShadow() = 0;
+  virtual void setShadow(const std::string &value) = 0;
+};

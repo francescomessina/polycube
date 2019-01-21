@@ -35,7 +35,7 @@ Router::Router(const std::string name, const RouterJsonObject &conf,
                CubeType type)
   : Cube(name, {generate_code()}, {}, type, conf.getPolycubeLoglevel()) {
   logger()->set_pattern("[%Y-%m-%d %H:%M:%S.%e] [Router] [%n] [%l] %v");
-  logger()->info("Creating Router instance");
+  logger()->info("creating Router instance");
 
   addArpEntryList(conf.getArpEntry());
   addRouteList(conf.getRoute());
@@ -111,13 +111,13 @@ std::string Router::generate_code(){
 }
 
 std::vector<std::string> Router::generate_code_vector(){
-  throw std::runtime_error("Method not implemented");
+  throw std::runtime_error("method Router::generate_code_vector not implemented");
 }
 
 void Router::packet_in(Ports &port,
                        PacketInMetadata &md,
                        const std::vector<uint8_t> &packet){
-  logger()->debug("Packet received from port {0}", port.name());
+  logger()->debug("packet received from port {0}", port.name());
 
   switch (md.reason) {
   case SLOWPATH_TTL_EXCEEDED:
@@ -137,7 +137,7 @@ void Router::packet_in(Ports &port,
     break;
 
   default:
-    logger()->error("Not valid reason {0} received", md.reason);
+    logger()->error("not valid reason {0} received", md.reason);
   }
 }
 
@@ -187,7 +187,7 @@ void Router::add_active_nexthop_in_ebpf_map(const std::string &network,
     if (elem.second.getNetwork() == network &&
         elem.second.getNetmask() == netmask) {
       if (elem.second.getNexthop() == "local") {
-        logger()->debug("There is a local entry. Route do not added to the datapath");
+        logger()->debug("there is a local entry. Route do not added to the datapath");
         return; // there is a local entry yet
       }
 
@@ -199,12 +199,12 @@ void Router::add_active_nexthop_in_ebpf_map(const std::string &network,
   }
 
   if (new_pathcost < min) {
-    logger()->debug("The new path cost '{0}' is better than the previous '{1}'",
+    logger()->debug("the new path cost '{0}' is better than the previous '{1}'",
                      new_pathcost, min);
     new_nexthop = nexthop;  //the new path is better than the old one, so we update the nexthop
   } else {
     //in this case we don't update the nexthop, as the old one is better than the new
-    logger()->debug("The new path cost '{0}' is worse than the previous '{1}'",
+    logger()->debug("the new path cost '{0}' is worse than the previous '{1}'",
                     new_pathcost, min);
     index = get_port(search_interface_from_nexthop(new_nexthop))->index();
   }
@@ -244,7 +244,7 @@ void Router::remove_route(const std::string &network,
     throw std::runtime_error("Route does not exist");
 
   routes_.erase(key);
-  logger()->debug("Removed route from control plane [network: {0} - netmask: {1} - nexthop: {2}]",
+  logger()->debug("removed route from control plane [network: {0} - netmask: {1} - nexthop: {2}]",
                   network, netmask, nexthop);
 
   find_new_active_nexthop(network, netmask, nexthop);
@@ -258,7 +258,7 @@ void Router::remove_all_routes() {
   if (routes_.size() == 0)
     throw std::runtime_error("No entry found in routing table");
 
-  logger()->debug("The routing table in the control plane has {0} entries",
+  logger()->debug("the routing table in the control plane has {0} entries",
                   routes_.size());
 
   auto routing_table = get_hash_table<rt_k, rt_v>("routing_table");
@@ -269,7 +269,7 @@ void Router::remove_all_routes() {
       std::string netmask = it->second.getNetmask();
       std::string nexthop = it->second.getNexthop();
       routes_.erase(it++);
-      logger()->debug("Removed route from control plane [network: {0} - netmask: {1} - nexthop: {2}]",
+      logger()->debug("removed route from control plane [network: {0} - netmask: {1} - nexthop: {2}]",
                       network, netmask, nexthop);
 
       //retrieve the entry from the fast path for the "netmask" "network", and get the nexthop in order to check whether the route is also in the fast path
@@ -284,19 +284,19 @@ void Router::remove_all_routes() {
         if (value.nexthop == ip_string_to_be_uint(nexthop)) {
           //  the nexthop in the fast path corresponds to that just removed in the control path
           //  then, the entry in the fast path is removed
-          logger()->debug("Route found in the data path");
+          logger()->debug("route found in the data path");
           routing_table.remove(key);
         }
         else
-          logger()->debug("Route not found in the data path");
+          logger()->debug("route not found in the data path");
       }
       catch (...) {
-        logger()->debug("Route not found in the data path");
+        logger()->debug("route not found in the data path");
       }
     }
     else
     {
-      logger()->debug("Local route not removed [network: {0} - netmask: {1} - nexthop: {2}]",
+      logger()->debug("local route not removed [network: {0} - netmask: {1} - nexthop: {2}]",
                       it->second.getNetwork(), it->second.getNetmask(),
                       it->second.getNexthop());
       it++;
@@ -331,7 +331,7 @@ void Router::add_local_route(const std::string &interface_ip,
 
   routing_table.set(key, value);
 
-  logger()->info("Added route [network: {0} - netmask: {1} - nexthop: {2} - interface: {3}]",
+  logger()->info("added route [network: {0} - netmask: {1} - nexthop: {2} - interface: {3}]",
                 interface_ip, "255.255.255.255", "0.0.0.0", port_name);
 
   /*
@@ -354,7 +354,7 @@ void Router::add_local_route(const std::string &interface_ip,
 
   routing_table.set(key2, value2);
 
-  logger()->info("Added route [network: {0} - netmask: {1} - nexthop: {2} - interface: {3}]",
+  logger()->info("added route [network: {0} - netmask: {1} - nexthop: {2} - interface: {3}]",
                  network, interface_netmask, "0.0.0.0", port_name);
 
   // Add the route in the table of the control plane
@@ -380,7 +380,7 @@ void Router::remove_local_route(const std::string &interface_ip,
 
   std::string network = get_network_from_ip(interface_ip, interface_netmask);
 
-  logger()->debug("Removing routes involving the port {0} and the network {1}",
+  logger()->debug("removing routes involving the port {0} and the network {1}",
                   port_name, network);
 
   /*
@@ -392,7 +392,7 @@ void Router::remove_local_route(const std::string &interface_ip,
         it->second.getInterface() == port_name &&
         it->second.getNetwork() == network) {
       routes_.erase(it++); //remove the route from the control plane
-      logger()->debug("Removed local route from the control plane [network: {0} - netmask: {1} - nexthop: {2} - interface: {3}]",
+      logger()->debug("removed local route from the control plane [network: {0} - netmask: {1} - nexthop: {2} - interface: {3}]",
                       network, interface_netmask, "0.0.0.0", port_name);
 
       // Remove or update the route in the data path
@@ -412,7 +412,7 @@ void Router::remove_local_route(const std::string &interface_ip,
   * - update it if there is, in the control plane, another route for the same network
   */
 
-  logger()->debug("Looking for other routes involving the port to be removed");
+  logger()->debug("looking for other routes involving the port to be removed");
 
   for (auto it = routes_.begin(); it != routes_.end();) {
     if (it->second.getNexthop() != "local" /*"local" are those networks directly connected*/ &&
@@ -428,7 +428,7 @@ void Router::remove_local_route(const std::string &interface_ip,
 
       routes_.erase(it++);
 
-      logger()->debug("Removed local route from the control plane [network: {0} - netmask: {1} - nexthop: {2} - interface: {3}]",
+      logger()->debug("removed local route from the control plane [network: {0} - netmask: {1} - nexthop: {2} - interface: {3}]",
                       cur_network, cur_netmask, cur_nexthop, cur_interface);
 
       // check if the entry is also in the fast path and either remove or update it, according to the
@@ -470,7 +470,7 @@ void Router::find_new_active_nexthop(const std::string &network,
     //  then, the entry in the fast path is removed if no other nexthop is found, otherwise it is just updated
     //  if more than one other nexthop exists, we use that with smallest cost
 
-    logger()->debug("Route found in the data path");
+    logger()->debug("route found in the data path");
 
     int32_t min = INT32_MAX;
     std::string new_nexthop;
@@ -478,7 +478,7 @@ void Router::find_new_active_nexthop(const std::string &network,
       if (elem.second.getNetwork() == network &&
           elem.second.getNetmask() == netmask) {
 
-        logger()->debug("Alternative route found for network [network: {0} - netmask: {1} - nexthop: {2} - interface: {3} - cost: {4}]",
+        logger()->debug("alternative route found for network [network: {0} - netmask: {1} - nexthop: {2} - interface: {3} - cost: {4}]",
                         elem.second.getNetwork(), elem.second.getNetmask(),
                         elem.second.getNexthop(),elem.second.getInterface(),
                         elem.second.getPathcost());
@@ -515,7 +515,7 @@ void Router::find_new_active_nexthop(const std::string &network,
     }
   }
   else
-    logger()->debug("Route not found in the data path");
+    logger()->debug("route not found in the data path");
 }
 
 /*
@@ -672,7 +672,7 @@ void Router::generate_arp_reply(Port &port, PacketInMetadata &md,
   EthernetII arp_reply(&packet[0], packet.size());
 
   unsigned int src_ip = md.metadata[0];
-  logger()->info("ARP reply '{0} is at {1}'",
+  logger()->debug("ARP reply '{0} is at {1}'",
                IPv4Address(src_ip).to_string(),
                arp_reply.src_addr().to_string());
 
@@ -707,11 +707,7 @@ void Router::generate_arp_reply(Port &port, PacketInMetadata &md,
     }
   } else {
     // no packet found, don't reply
-    logger()->info("no packet found for ARP reply");
+    logger()->debug("no packet found for ARP reply, if it is a shadow port it will reply Linux");
   }
   mu.unlock();
 }
-
-
-
-

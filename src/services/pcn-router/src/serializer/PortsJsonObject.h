@@ -127,6 +127,13 @@ public:
   bool macIsSet() const;
   void unsetMac();
 
+  /// <summary>
+  /// Name of the shadow interface
+  /// </summary>
+  std::string getShadow() const;
+  void setShadow(std::string value);
+  bool shadowIsSet() const;
+  void unsetShadow();
 
 protected:
   std::string m_name;
@@ -145,12 +152,13 @@ protected:
   bool m_secondaryipIsSet;
   std::string m_mac;
   bool m_macIsSet;
-
-  std::vector<std::string> allowedParameters_{ "name", "uuid", "status", "peer", "ip", "netmask", "secondaryip", "mac" };
+  std::string m_shadow;
+  bool m_shadowIsSet;
+  
+  std::vector<std::string> allowedParameters_{ "name", "uuid", "status", "peer", "ip", "netmask", "secondaryip", "mac", "shadow" };
 };
 
 }
 }
 }
 }
-

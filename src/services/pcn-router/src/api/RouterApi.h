@@ -81,6 +81,7 @@ class  RouterApi : public ManagementInterface {
   void read_router_ports_ip_by_id_handler(const polycube::service::Rest::Request &request, polycube::service::HttpHandleResponse &response);
   void read_router_ports_list_by_id_handler(const polycube::service::Rest::Request &request, polycube::service::HttpHandleResponse &response);
   void read_router_ports_mac_by_id_handler(const polycube::service::Rest::Request &request, polycube::service::HttpHandleResponse &response);
+  void read_router_ports_shadow_by_id_handler(const polycube::service::Rest::Request &request, polycube::service::HttpHandleResponse &response);
   void read_router_ports_netmask_by_id_handler(const polycube::service::Rest::Request &request, polycube::service::HttpHandleResponse &response);
   void read_router_ports_peer_by_id_handler(const polycube::service::Rest::Request &request, polycube::service::HttpHandleResponse &response);
   void read_router_ports_secondaryip_by_id_handler(const polycube::service::Rest::Request &request, polycube::service::HttpHandleResponse &response);
@@ -113,6 +114,7 @@ class  RouterApi : public ManagementInterface {
   void update_router_ports_ip_by_id_handler(const polycube::service::Rest::Request &request, polycube::service::HttpHandleResponse &response);
   void update_router_ports_list_by_id_handler(const polycube::service::Rest::Request &request, polycube::service::HttpHandleResponse &response);
   void update_router_ports_mac_by_id_handler(const polycube::service::Rest::Request &request, polycube::service::HttpHandleResponse &response);
+  void update_router_ports_shadow_by_id_handler(const polycube::service::Rest::Request &request, polycube::service::HttpHandleResponse &response);
   void update_router_ports_netmask_by_id_handler(const polycube::service::Rest::Request &request, polycube::service::HttpHandleResponse &response);
   void update_router_ports_peer_by_id_handler(const polycube::service::Rest::Request &request, polycube::service::HttpHandleResponse &response);
   void update_router_ports_secondaryip_by_id_handler(const polycube::service::Rest::Request &request, polycube::service::HttpHandleResponse &response);
@@ -402,6 +404,15 @@ class  RouterApi : public ManagementInterface {
   /// <param name="name">ID of name</param>
   /// <param name="portsName">ID of ports_name</param>
   virtual std::string read_router_ports_mac_by_id(const std::string &name, const std::string &portsName) = 0;
+  /// <summary>
+  /// Read shadow by ID
+  /// </summary>
+  /// <remarks>
+  /// Read operation of resource: shadow
+  /// </remarks>
+  /// <param name="name">ID of name</param>
+  /// <param name="portsName">ID of ports_name</param>
+  virtual std::string read_router_ports_shadow_by_id(const std::string &name, const std::string &portsName) = 0;
   /// <summary>
   /// Read netmask by ID
   /// </summary>
@@ -712,6 +723,16 @@ class  RouterApi : public ManagementInterface {
   /// <param name="value">MAC address of the port</param>
   virtual void update_router_ports_mac_by_id(const std::string &name, const std::string &portsName, const std::string &value) = 0;
   /// <summary>
+  /// Update shadow by ID
+  /// </summary>
+  /// <remarks>
+  /// Update operation of resource: shadow
+  /// </remarks>
+  /// <param name="name">ID of name</param>
+  /// <param name="portsName">ID of ports_name</param>
+  /// <param name="value">Name of the shadow interface</param>
+  virtual void update_router_ports_shadow_by_id(const std::string &name, const std::string &portsName, const std::string &value) = 0;
+  /// <summary>
   /// Update netmask by ID
   /// </summary>
   /// <remarks>
@@ -792,4 +813,3 @@ class  RouterApi : public ManagementInterface {
 }
 }
 }
-

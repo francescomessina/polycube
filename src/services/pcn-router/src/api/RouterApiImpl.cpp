@@ -700,6 +700,28 @@ RouterApiImpl::read_router_ports_mac_by_id(const std::string &name, const std::s
 
 
 /**
+* @brief   Read shadow by ID
+*
+* Read operation of resource: shadow*
+*
+* @param[in] name ID of name
+* @param[in] portsName ID of ports_name
+*
+* Responses:
+* std::string
+*/
+std::string
+RouterApiImpl::read_router_ports_shadow_by_id(const std::string &name, const std::string &portsName) {
+  auto router = get_cube(name);
+  auto ports = router->getPorts(portsName);
+  return ports->getShadow();
+
+}
+
+
+
+
+/**
 * @brief   Read netmask by ID
 *
 * Read operation of resource: netmask*
@@ -1309,6 +1331,29 @@ RouterApiImpl::update_router_ports_mac_by_id(const std::string &name, const std:
 
 
 /**
+* @brief   Update shadow by ID
+*
+* Update operation of resource: shadow*
+*
+* @param[in] name ID of name
+* @param[in] portsName ID of ports_name
+* @param[in] value Name of the shadow interface
+*
+* Responses:
+*
+*/
+void
+RouterApiImpl::update_router_ports_shadow_by_id(const std::string &name, const std::string &portsName, const std::string &value) {
+  auto router = get_cube(name);
+  auto ports = router->getPorts(portsName);
+
+  ports->setShadow(value);
+}
+
+
+
+
+/**
 * @brief   Update netmask by ID
 *
 * Update operation of resource: netmask*
@@ -1460,4 +1505,3 @@ RouterApiImpl::update_router_route_pathcost_by_id(const std::string &name, const
 }
 }
 }
-

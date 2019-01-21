@@ -39,6 +39,8 @@ PortsJsonObject::PortsJsonObject() {
   m_secondaryipIsSet = false;
 
   m_macIsSet = false;
+
+  m_shadowIsSet = false;
 }
 
 PortsJsonObject::~PortsJsonObject() {}
@@ -52,12 +54,6 @@ void PortsJsonObject::validateKeys() {
 
 void PortsJsonObject::validateMandatoryFields() {
 
-  if (!m_ipIsSet) {
-    throw std::runtime_error("Variable ip is required");
-  }
-  if (!m_netmaskIsSet) {
-    throw std::runtime_error("Variable netmask is required");
-  }
 }
 
 void PortsJsonObject::validateParams() {
@@ -107,8 +103,14 @@ nlohmann::json PortsJsonObject::toJson() const {
     val["peer"] = m_peer;
   }
 
-  val["ip"] = m_ip;
-  val["netmask"] = m_netmask;
+  if (m_ipIsSet) {
+    val["ip"] = m_ip;
+  }
+
+  if (m_netmaskIsSet) {
+    val["netmask"] = m_netmask;
+  }
+
   {
     nlohmann::json jsonArray;
     for (auto& item : m_secondaryip) {
@@ -123,6 +125,9 @@ nlohmann::json PortsJsonObject::toJson() const {
     val["mac"] = m_mac;
   }
 
+  if (m_shadowIsSet) {
+    val["shadow"] = m_shadow;
+  }
 
   return val;
 }
@@ -173,6 +178,10 @@ void PortsJsonObject::fromJson(nlohmann::json& val) {
 
   if (val.find("mac") != val.end()) {
     setMac(val.at("mac"));
+  }
+
+  if (val.find("shadow") != val.end()) {
+    setShadow(val.at("shadow"));
   }
 }
 
@@ -226,6 +235,11 @@ nlohmann::json PortsJsonObject::helpElements() {
   val["mac"]["simpletype"] = "string";
   val["mac"]["description"] = R"POLYCUBE(MAC address of the port)POLYCUBE";
   val["mac"]["example"] = R"POLYCUBE(B3:23:45:F5:3A)POLYCUBE";
+  val["shadow"]["name"] = "shadow";
+  val["shadow"]["type"] = "leaf"; // Suppose that type is leaf
+  val["shadow"]["simpletype"] = "string";
+  val["shadow"]["description"] = R"POLYCUBE(Name of the shadow interface)POLYCUBE";
+  val["shadow"]["example"] = R"POLYCUBE(veth0)POLYCUBE";
 
   return val;
 }
@@ -249,6 +263,10 @@ nlohmann::json PortsJsonObject::helpWritableLeafs() {
   val["mac"]["simpletype"] = "string";
   val["mac"]["description"] = R"POLYCUBE(MAC address of the port)POLYCUBE";
   val["mac"]["example"] = R"POLYCUBE(B3:23:45:F5:3A)POLYCUBE";
+  val["shadow"]["name"] = "shadow";
+  val["shadow"]["simpletype"] = "string";
+  val["shadow"]["description"] = R"POLYCUBE(Name of the shadow interface)POLYCUBE";
+  val["shadow"]["example"] = R"POLYCUBE(veth0)POLYCUBE";
 
   return val;
 }
@@ -439,9 +457,25 @@ void PortsJsonObject::unsetMac() {
 
 
 
+std::string PortsJsonObject::getShadow() const {
+  return m_shadow;
+}
+
+void PortsJsonObject::setShadow(std::string value) {
+  m_shadow = value;
+  m_shadowIsSet = true;
+}
+
+bool PortsJsonObject::shadowIsSet() const {
+  return m_shadowIsSet;
+}
+
+void PortsJsonObject::unsetShadow() {
+  m_shadowIsSet = false;
+}
+
 
 }
 }
 }
 }
-
