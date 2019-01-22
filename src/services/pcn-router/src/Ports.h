@@ -39,6 +39,7 @@ struct r_port {
   uint32_t secondary_ip[SECONDARY_ADDRESS];
   uint32_t secondary_netmask[SECONDARY_ADDRESS];
   uint64_t mac : 48;
+  bool shadow;
 } __attribute__((packed));
 
 using namespace io::swagger::server::model;

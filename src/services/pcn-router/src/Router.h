@@ -25,13 +25,24 @@
 #include "polycube/services/utils.h"
 
 #include <spdlog/spdlog.h>
+#include <list>
+#include <string>
 
 #include "ArpEntry.h"
 #include "Ports.h"
 #include "Route.h"
+#include "Utils.h"
 
 #include <tins/ethernetII.h>
 #include <tins/tins.h>
+
+// netlink
+#include "../../../polycubed/src/netlink.h"
+
+// Interfaces
+#include <ifaddrs.h>  // getifaddrs
+#include <net/if.h>   // if_nametoindex,  if_indextoname
+#include <sys/ioctl.h>
 
 using namespace io::swagger::server::model;
 using polycube::service::CubeType;
@@ -151,6 +162,24 @@ public:
 
   void remove_all_routes();
 
+  std::mutex router_mutex;
+
+  // correspondence between interface_name and port_name
+  std::unordered_map<std::string, std::string> shadow_interfaces;
+  PortsJsonObject attachInterface(const PortsJsonObject &conf);
+
+  void add_linux_route(const std::string &network,
+                       const std::string &netmask_length,
+                       const std::string &nexthop,
+                       const std::string &port_name,
+                       const int port_index);
+
+  void remove_all_routes_for_interface(const std::string &port_name);
+
+  bool check_interface_is_shadow(const std::string &name_interface);
+
+  bool check_ports_in_the_same_network(const std::string &ip, const std::string &netmask);
+
 private:
   // The following variables have been added by hand
   std::map<std::tuple<std::string, std::string, std::string>, Route>  routes_;
@@ -179,4 +208,3 @@ private:
   void find_new_active_nexthop(const std::string &network, const std::string &netmask, const std::string &nexthop);
 
 };
-

@@ -26,20 +26,66 @@ Ports::Ports(polycube::service::Cube<Ports> &parent,
              std::shared_ptr<polycube::service::PortIface> port,
              const PortsJsonObject &conf)
   : Port(port), parent_(static_cast<Router&>(parent)) {
-  if(conf.macIsSet())
-    mac_ = conf.getMac();
-  else
-    mac_ = polycube::service::utils::get_random_mac();
+  logger()->debug("start creating Ports instance");
 
-  if (!is_netmask_valid(conf.getNetmask())) //TODO: not sure that the validation is needed
-    throw std::runtime_error("Netmask is in invalid format");
+  std::string routing_table_linux;
 
-  ip_ = conf.getIp();
-  netmask_ = conf.getNetmask();
+  // Check if it is a shadow port
+  if (conf.shadowIsSet()) {
+    logger()->debug("it is a shadow port");
+
+    // Get the interface parameters
+    PortsJsonObject conf_ret = parent_.attachInterface(conf);
+
+    // Check if the interface can be shaded
+    if (!(conf_ret.ipIsSet() && conf_ret.macIsSet() && conf_ret.shadowIsSet() &&
+          conf_ret.netmaskIsSet())) {
+      throw std::runtime_error(
+          "the interface can't be shaded, check if the interface exists");
+    }
+
+    shadow_ = conf_ret.getShadow();
+    mac_ = conf_ret.getMac();
+    ip_ = conf_ret.getIp();
+    netmask_ = conf_ret.getNetmask();
+    setPeer(conf_ret.getPeer());
+
+    // Read linux routing table and update polycube routing table
+    // These method is in Utils.cpp
+    routing_table_linux = read_routing_table_linux();
+
+  } else {
+    logger()->debug("it is not a shadow port");
+    if (conf.ipIsSet() && conf.netmaskIsSet()) {
+      ip_ = conf.getIp();
+      netmask_ = conf.getNetmask();
+
+      if (!is_netmask_valid(conf.getNetmask())) {
+        throw std::runtime_error("netmask is in invalid format");
+      }
+
+    } else {
+      throw std::runtime_error(
+          "ip and netmask are mandatory, or shadow an existing interface");
+    }
+
+    if (conf.macIsSet())
+      mac_ = conf.getMac();
+    else
+      mac_ = polycube::service::utils::get_random_mac();
+
+    shadow_ = "None";
+
+    if (conf.peerIsSet()) {
+      setPeer(conf.getPeer());
+    }
+  }
 
   std::string port_name(getName());
 
-  //TODO: check that no other router port exists in the same network
+  // check that no other router port exists in the same network
+  if (parent_.check_ports_in_the_same_network(ip_, netmask_))
+    throw std::runtime_error("A port already exists in the same network");
 
   /*
   * Add the port to the datapath
@@ -52,9 +98,10 @@ Ports::Ports(polycube::service::Cube<Ports> &parent,
     .secondary_ip = {},
     .secondary_netmask = {},
     .mac = utils::mac_string_to_be_uint(mac_),
+    .shadow = conf.shadowIsSet(),
   };
 
-  uint16_t index = this->index();
+  uint16_t index = port->index();
   const std::vector<PortsSecondaryipJsonObject> secondary_ips = conf.getSecondaryip();
   int i = 0;
   for (auto &addr : secondary_ips) {
@@ -72,19 +119,37 @@ Ports::Ports(polycube::service::Cube<Ports> &parent,
   /*
   * Add two routes in the routing table
   */
-  parent_.add_local_route(conf.getIp(), conf.getNetmask(), getName(),index);
+  parent_.add_local_route(ip_, netmask_, getName(), index);
+
+  // Only for shadow port take information from the linux routing table
+  if (conf.shadowIsSet()) {
+    // Split routing table and take only some information
+    std::istringstream split(routing_table_linux);
+    std::vector<std::string> rows;
+    char split_char = '\n';
+    for (std::string each; std::getline(split, each, split_char);
+        rows.push_back(each));
+
+    for (auto row : rows) {
+      std::istringstream split2(row);
+      std::vector<std::string> words;
+      split_char = ' ';
+      for (std::string each; std::getline(split2, each, split_char);
+          words.push_back(each));
+
+      if (words[0] == shadow_) {
+        // parent_.add_linux_route(network, netmask_length, nexthop, port_name, port_index);
+        parent_.add_linux_route(words[2], words[3], words[4], getName(), index);
+      }
+    }
+  }
 
   /*
   * Create an object representing the secondary IP and add the routes related to the secondary ips
   */
 
-  for(auto &addr : secondary_ips)
-  {
+  for (auto &addr : secondary_ips) {
     PortsSecondaryip::createInControlPlane(*this, addr.getIp(), addr.getNetmask(), addr);
-  }
-
-  if(conf.peerIsSet()) {
-    setPeer(conf.getPeer());
   }
 }
 
