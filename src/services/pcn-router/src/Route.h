@@ -32,7 +32,7 @@
 #include "Ports.h"
 #include "ArpEntry.h"
 
-#include "UtilityMethods.h"
+#include "Utils.h"
 
 #include "CircularBuffer.h"
 
@@ -118,4 +118,3 @@ private:
 
   bool pathCostIsSet_;
 };
-

@@ -26,7 +26,7 @@ PortsSecondaryip::PortsSecondaryip(Ports &parent, const PortsSecondaryipJsonObje
   ip_ = conf.getIp();
   netmask_ = conf.getNetmask();
 
-  parent.logger()->debug("Adding secondary address [ip: {0} - netmask: {1}]",ip_,netmask_);
+  parent.logger()->debug("adding secondary address [ip: {0} - netmask: {1}]",ip_,netmask_);
 
   //TODO: check that no other router port exists in the same network
 
@@ -102,18 +102,18 @@ void PortsSecondaryip::createInControlPlane(Ports &parent, const std::string &ip
   //TODO: a port cannot have more than SECONDARY_ADDRESS secondary addresses. This constraint come
   //from a constant defined in the fast path
 
-  parent.logger()->info("Adding secondary address [port: {0} - ip: {1} - netmask: {2}]",parent.getName(),ip,netmask);
+  parent.logger()->info("adding secondary address [port: {0} - ip: {1} - netmask: {2}]",parent.getName(),ip,netmask);
 
-  parent.logger()->info("Port {0} has already {1} secondary addresses",parent.getName(),parent.secondary_ips_.size());
+  parent.logger()->info("port {0} has already {1} secondary addresses",parent.getName(),parent.secondary_ips_.size());
   auto ret = parent.secondary_ips_.emplace(PortsSecondaryip(parent, conf));
-  parent.logger()->info("Now port {0} has {1} secondary addresses",parent.getName(),parent.secondary_ips_.size());
+  parent.logger()->info("now port {0} has {1} secondary addresses",parent.getName(),parent.secondary_ips_.size());
 
 }
 
 std::shared_ptr<PortsSecondaryip> PortsSecondaryip::getEntry(Ports &parent, const std::string &ip, const std::string &netmask){
   //This method retrieves the pointer to PortsSecondaryip object specified by its keys.
 
-  parent.logger()->debug("Getting secondary ip [port: {0} - ip: {1} - netmask: {2}]",parent.getName(),ip,netmask);
+  parent.logger()->debug("getting secondary ip [port: {0} - ip: {1} - netmask: {2}]",parent.getName(),ip,netmask);
 
   for(auto p : parent.secondary_ips_) {
     if((p.ip_ == ip) && (p.netmask_== netmask))
@@ -125,7 +125,7 @@ void PortsSecondaryip::removeEntry(Ports &parent, const std::string &ip, const s
   //This method removes the single PortsSecondaryip object specified by its keys.
   //Remember to call here the remove static method for all-sub-objects of PortsSecondaryip.
 
-  parent.logger()->info("Remove secondary address [ip: {0} - netmask: {1}] from port {2}", ip, netmask, parent.getName());
+  parent.logger()->info("remove secondary address [ip: {0} - netmask: {1}] from port {2}", ip, netmask, parent.getName());
 
   //Check that the secondary address exists
   bool found = false;
@@ -138,7 +138,7 @@ void PortsSecondaryip::removeEntry(Ports &parent, const std::string &ip, const s
     }
   }
   if(!found)
-     throw std::runtime_error("Address does not exist (or it is not a secondary address)");
+     throw std::runtime_error("address does not exist (or it is not a secondary address)");
 
   //change the port in the datapath
   updatePortInDataPath(parent);
@@ -149,7 +149,7 @@ void PortsSecondaryip::removeEntry(Ports &parent, const std::string &ip, const s
 std::vector<std::shared_ptr<PortsSecondaryip>> PortsSecondaryip::get(Ports &parent){
   //This methods get the pointers to all the PortsSecondaryip objects in Ports.
 
-  parent.logger()->debug("Getting all the {1} secondary addresses of port: {0}",parent.getName(),parent.secondary_ips_.size());
+  parent.logger()->debug("getting all the {1} secondary addresses of port: {0}",parent.getName(),parent.secondary_ips_.size());
 
   std::vector<std::shared_ptr<PortsSecondaryip>> ips_vect;
   for(auto &it : parent.secondary_ips_)
@@ -162,7 +162,7 @@ void PortsSecondaryip::remove(Ports &parent){
   //This method removes all PortsSecondaryip objects in Ports.
   //Remember to call here the remove static method for all-sub-objects of PortsSecondaryip.
 
-  parent.logger()->info("Removing all the secondary addresses of port {0}",parent.getName());
+  parent.logger()->info("removing all the secondary addresses of port {0}",parent.getName());
 
   for(auto it = parent.secondary_ips_.begin(); it != parent.secondary_ips_.end();) {
     auto tmp = it;

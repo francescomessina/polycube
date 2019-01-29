@@ -72,4 +72,3 @@ private:
   //The following methods have been added manually
   static void updatePortInDataPath(Ports &parent);
 };
-

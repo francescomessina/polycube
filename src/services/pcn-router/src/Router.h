@@ -74,37 +74,26 @@ public:
   std::string getName() override;
 
   /// <summary>
-  /// Defines the logging level of a service instance, from none (OFF) to the most verbose (TRACE). Default: OFF
+  /// UUID of the Cube
   /// </summary>
-  RouterLoglevelEnum getLoglevel() override;
-  void setLoglevel(const RouterLoglevelEnum &value) override;
-
-  /// <summary>
-  /// Entry associated with the ARP table
-  /// </summary>
-  std::shared_ptr<ArpEntry> getArpEntry(const std::string &address) override;
-  std::vector<std::shared_ptr<ArpEntry>> getArpEntryList() override;
-  void addArpEntry(const std::string &address, const ArpEntryJsonObject &conf) override;
-  void addArpEntryList(const std::vector<ArpEntryJsonObject> &conf) override;
-  void replaceArpEntry(const std::string &address, const ArpEntryJsonObject &conf) override;
-  void delArpEntry(const std::string &address) override;
-  void delArpEntryList() override;
-
-  /// <summary>
-  /// Entry associated with the routing table
-  /// </summary>
-  std::shared_ptr<Route> getRoute(const std::string &network, const std::string &netmask, const std::string &nexthop) override;
-  std::vector<std::shared_ptr<Route>> getRouteList() override;
-  void addRoute(const std::string &network, const std::string &netmask, const std::string &nexthop, const RouteJsonObject &conf) override;
-  void addRouteList(const std::vector<RouteJsonObject> &conf) override;
-  void replaceRoute(const std::string &network, const std::string &netmask, const std::string &nexthop, const RouteJsonObject &conf) override;
-  void delRoute(const std::string &network, const std::string &netmask, const std::string &nexthop) override;
-  void delRouteList() override;
+  std::string getUuid() override;
 
   /// <summary>
   /// Type of the Cube (TC, XDP_SKB, XDP_DRV)
   /// </summary>
   CubeType getType() override;
+
+  /// <summary>
+  /// Defines the logging level of a service instance, from none (OFF) to the most verbose (TRACE)
+  /// </summary>
+  RouterLoglevelEnum getLoglevel() override;
+  void setLoglevel(const RouterLoglevelEnum &value) override;
+
+  /// <summary>
+  /// Defines if the service has the interfaces visible in Linux
+  /// </summary>
+  bool getShadow() override;
+  void setShadow(const bool &value) override;
 
   /// <summary>
   /// Entry of the ports table
@@ -118,9 +107,26 @@ public:
   void delPortsList() override;
 
   /// <summary>
-  /// UUID of the Cube
+  /// Entry associated with the routing table
   /// </summary>
-  std::string getUuid() override;
+  std::shared_ptr<Route> getRoute(const std::string &network, const std::string &netmask, const std::string &nexthop) override;
+  std::vector<std::shared_ptr<Route>> getRouteList() override;
+  void addRoute(const std::string &network, const std::string &netmask, const std::string &nexthop, const RouteJsonObject &conf) override;
+  void addRouteList(const std::vector<RouteJsonObject> &conf) override;
+  void replaceRoute(const std::string &network, const std::string &netmask, const std::string &nexthop, const RouteJsonObject &conf) override;
+  void delRoute(const std::string &network, const std::string &netmask, const std::string &nexthop) override;
+  void delRouteList() override;
+
+  /// <summary>
+  /// Entry associated with the ARP table
+  /// </summary>
+  std::shared_ptr<ArpEntry> getArpEntry(const std::string &address) override;
+  std::vector<std::shared_ptr<ArpEntry>> getArpEntryList() override;
+  void addArpEntry(const std::string &address, const ArpEntryJsonObject &conf) override;
+  void addArpEntryList(const std::vector<ArpEntryJsonObject> &conf) override;
+  void replaceArpEntry(const std::string &address, const ArpEntryJsonObject &conf) override;
+  void delArpEntry(const std::string &address) override;
+  void delArpEntryList() override;
 
   // The following methods have been added by hand
 
@@ -153,6 +159,8 @@ public:
 
 private:
   // The following variables have been added by hand
+  bool shadow_;
+
   std::map<std::tuple<std::string, std::string, std::string>, Route>  routes_;
 
   //Mutex used to regulate access to the buffer of stored packets
@@ -179,4 +187,3 @@ private:
   void find_new_active_nexthop(const std::string &network, const std::string &netmask, const std::string &nexthop);
 
 };
-

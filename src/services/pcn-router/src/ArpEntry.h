@@ -34,7 +34,7 @@ struct arp_entry {
 } __attribute__((packed));
 
 class ArpEntry : public ArpEntryInterface {
-public:
+ public:
   ArpEntry(Router &parent, const ArpEntryJsonObject &conf);
   ArpEntry(Router &parent, const std::string &mac, const std::string &ip, const std::string &interface);
   virtual ~ArpEntry();
@@ -44,16 +44,15 @@ public:
   static void removeEntry(Router &parent, const std::string &address);
   static std::vector<std::shared_ptr<ArpEntry>> get(Router &parent);
   static void remove(Router &parent);
-  std::shared_ptr<spdlog::logger> logger();
   nlohmann::fifo_map<std::string, std::string> getKeys();
+  std::shared_ptr<spdlog::logger> logger();
   void update(const ArpEntryJsonObject &conf) override;
   ArpEntryJsonObject toJsonObject() override;
 
   /// <summary>
-  /// Outgoing interface
+  /// Destination IP address
   /// </summary>
-  std::string getInterface() override;
-  void setInterface(const std::string &value) override;
+  std::string getAddress() override;
 
   /// <summary>
   /// Destination MAC address
@@ -62,9 +61,10 @@ public:
   void setMac(const std::string &value) override;
 
   /// <summary>
-  /// Destination IP address
+  /// Outgoing interface
   /// </summary>
-  std::string getAddress() override;
+  std::string getInterface() override;
+  void setInterface(const std::string &value) override;
 
 private:
   Router &parent_;
@@ -73,4 +73,3 @@ private:
   std::string ip_;
   std::string interface_;
 };
-

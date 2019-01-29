@@ -22,7 +22,7 @@
 #include "Router.h"
 
 Route::Route(Router &parent, const RouteJsonObject &conf): parent_(parent) {
-  logger()->info("Creating Route instance");
+  logger()->info("creating Route instance");
 
   //TODO: check the validity of the netmask
 
@@ -34,7 +34,7 @@ Route::Route(Router &parent, const RouteJsonObject &conf): parent_(parent) {
 
   pathcost_ = conf.getPathcost();
 
-  parent.logger()->debug("Adding route [network: {0} - netmask: {1} - nexthop: {2} - path cost: {3}]",
+  parent.logger()->debug("adding route [network: {0} - netmask: {1} - nexthop: {2} - path cost: {3}]",
                           network_, netmask_, nexthop_, pathcost_);
 
   // identify the interface of the router to be used to reach the nexthop
@@ -44,7 +44,7 @@ Route::Route(Router &parent, const RouteJsonObject &conf): parent_(parent) {
     interface_ = conf.getInterface();
   }
 
-  parent.logger()->info("Adding route [network: {0} - netmask: {1} - nexthop: {2} - interface: {3} - path cost: {4}]",
+  parent.logger()->info("adding route [network: {0} - netmask: {1} - nexthop: {2} - interface: {3} - path cost: {4}]",
                         network_,netmask_, nexthop_, interface_, pathcost_);
 
   int port_id = parent.get_port(interface_)->index();
@@ -102,13 +102,13 @@ void Route::create(Router &parent, const std::string &network,
   //This method creates the actual Route object given thee key param.
   //Please remember to call here the create static method for all sub-objects of Route.
 
-  parent.logger()->debug("Trying to add route [network: {0} - netmask: {1} - nexthop: {2}]",
+  parent.logger()->debug("trying to add route [network: {0} - netmask: {1} - nexthop: {2}]",
     network, netmask, nexthop);
 
   std::tuple<string,string,string> key (network,netmask,nexthop);
 
   if (parent.routes_.count(key) != 0)
-    throw std::runtime_error("Route already exists");
+    throw std::runtime_error("route already exists");
 
   parent.routes_.emplace(std::piecewise_construct,
                          std::forward_as_tuple(key),
@@ -132,7 +132,7 @@ void Route::removeEntry(Router &parent, const std::string &network,
   //This method removes the single Route object specified by its keys.
   //Remember to call here the remove static method for all-sub-objects of Route.
 
-  parent.logger()->debug("Trying to remove route [network: {0} - netmask: {1} - nexthop: {2}]",
+  parent.logger()->debug("trying to remove route [network: {0} - netmask: {1} - nexthop: {2}]",
                          network, netmask, nexthop);
 
   // FIXME: is this good? cannot users delete "local" routes.
@@ -146,7 +146,7 @@ void Route::removeEntry(Router &parent, const std::string &network,
 
 std::vector<std::shared_ptr<Route>> Route::get(Router &parent){
   //This methods get the pointers to all the Route objects in Router.
-  parent.logger()->debug("Returning all the routes ({0})",parent.routes_.size());
+  parent.logger()->debug("returning all the routes ({0})",parent.routes_.size());
 
   std::vector<std::shared_ptr<Route>> routes_vect;
   for(auto &it : parent.routes_)
@@ -167,7 +167,7 @@ void Route::remove(Router &parent){
   //This method removes all Route objects in Router.
   //Remember to call here the remove static method for all-sub-objects of Route.
 
-  parent.logger()->debug("Removing all the entries in the routing table");
+  parent.logger()->debug("removing all the entries in the routing table");
   parent.remove_all_routes();
 
 }
@@ -203,7 +203,7 @@ uint32_t Route::getPathcost(){
 
 void Route::setPathcost(const uint32_t &value){
   //This method set the pathcost value.
-  throw std::runtime_error("[Route]: Method setPathcost not implemented");
+  throw std::runtime_error("method Route::setPathcost not implemented");
 }
 
 

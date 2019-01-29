@@ -82,6 +82,12 @@ module polycube-base {
       modelbase:cli-example "INFO";
     }
 
+    leaf shadow {
+      type boolean;
+      default "false";
+      description "Defines if the service has the interfaces visible in Linux";
+    }
+
     list ports {
       key "name";
       unique "uuid";

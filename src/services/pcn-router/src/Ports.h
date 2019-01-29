@@ -62,14 +62,25 @@ public:
   PortsJsonObject toJsonObject() override;
 
   /// <summary>
+  /// Port Name
+  /// </summary>
+  std::string getName() override;
+
+  /// <summary>
+  /// UUID of the port
+  /// </summary>
+  std::string getUuid() override;
+
+  /// <summary>
   /// Status of the port (UP or DOWN)
   /// </summary>
   PortsStatusEnum getStatus() override;
 
   /// <summary>
-  /// Port Name
+  /// Peer name, such as a network interfaces (e.g., &#39;veth0&#39;) or another cube (e.g., &#39;br1:port2&#39;)
   /// </summary>
-  std::string getName() override;
+  std::string getPeer() override;
+  void setPeer(const std::string &value) override;
 
   /// <summary>
   /// IP address of the port
@@ -84,18 +95,6 @@ public:
   void setNetmask(const std::string &value) override;
 
   /// <summary>
-  /// MAC address of the port
-  /// </summary>
-  std::string getMac() override;
-  void setMac(const std::string &value) override;
-
-  /// <summary>
-  /// Peer name, such as a network interfaces (e.g., &#39;veth0&#39;) or another cube (e.g., &#39;br1:port2&#39;)
-  /// </summary>
-  std::string getPeer() override;
-  void setPeer(const std::string &value) override;
-
-  /// <summary>
   /// Secondary IP address for the port
   /// </summary>
   std::shared_ptr<PortsSecondaryip> getSecondaryip(const std::string &ip, const std::string &netmask) override;
@@ -107,9 +106,10 @@ public:
   void delSecondaryipList() override;
 
   /// <summary>
-  /// UUID of the port
+  /// MAC address of the port
   /// </summary>
-  std::string getUuid() override;
+  std::string getMac() override;
+  void setMac(const std::string &value) override;
 
 private:
   Router &parent_;
@@ -120,4 +120,3 @@ private:
 
   std::set<PortsSecondaryip> secondary_ips_;
 };
-

@@ -22,7 +22,7 @@ add_library(pcn-router SHARED
   Router.cpp
   Router-lib.cpp
   CircularBuffer.cpp
-  UtilityMethods.cpp)
+  Utils.cpp)
 
 # load ebpf datapath code in std::string variables
 load_file_as_variable(pcn-router Router_dp.c router_code)
