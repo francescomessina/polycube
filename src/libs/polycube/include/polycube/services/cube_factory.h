@@ -74,7 +74,7 @@ class CubeFactory {
                                  const log_msg_cb &log_msg,
                                  const CubeType type,
                                  const packet_in_cb &cb = empty_packet_in_cb,
-                                 LogLevel level = LogLevel::OFF) = 0;
+                                 LogLevel level = LogLevel::OFF, bool shadow = false) = 0;
 
 
   virtual void destroy_cube(const std::string &name) = 0;

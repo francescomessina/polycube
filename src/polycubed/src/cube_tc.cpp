@@ -29,11 +29,11 @@ CubeTC::CubeTC(const std::string &name,
                const std::string &service_name,
                const std::vector<std::string> &ingress_code,
                const std::vector<std::string> &egress_code,
-               LogLevel level)
+               LogLevel level, bool shadow)
     : Cube(name, service_name,
            PatchPanel::get_tc_instance(),
            PatchPanel::get_tc_instance(),
-           level, CubeType::TC) {
+           level, CubeType::TC, shadow) {
   // it has to be done here becuase it needs the load, compile methods
   // to be ready
   Cube::init(ingress_code, egress_code);

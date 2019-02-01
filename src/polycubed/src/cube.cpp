@@ -38,14 +38,14 @@ Cube::Cube(const std::string &name,
            const std::string &service_name,
            PatchPanel &patch_panel_ingress,
            PatchPanel &patch_panel_egress,
-           LogLevel level, CubeType type)
+           LogLevel level, CubeType type, bool shadow)
     : name_(name), service_name_(service_name),
     logger(spdlog::get("polycubed")),
     uuid_(GuidGenerator().newGuid()),
     patch_panel_ingress_(patch_panel_ingress),
     patch_panel_egress_(patch_panel_egress),
     ingress_fd_(0), egress_fd_(0), ingress_index_(0), egress_index_(0),
-    level_(level), type_(type), id_(id_generator_.acquire()) {
+    level_(level), type_(type), id_(id_generator_.acquire()), shadow_(shadow) {
   std::lock_guard<std::mutex> guard(bcc_mutex);
 
   // create master program that contains some maps definitions
@@ -154,6 +154,35 @@ std::shared_ptr<PortIface> Cube::add_port(const std::string &name) {
     port = std::make_shared<PortXDP>(*this, name, id);
     break;
   }
+
+/********************************************************************************************/
+  if (shadow_) {
+    bool find = false;
+    auto ifaces = polycube::polycubed::Netlink::getInstance().get_available_ifaces();
+    for (auto &it : ifaces) {
+      auto name_iface = it.second.get_name();
+      if (name_iface == name) {
+        logger->info("the interface {0} already exists on Linux", name);
+        find = true;
+        break;
+      }
+    }
+
+    if (!find) {
+      std::string name_linux_iface = get_name() + "_" + name;
+      std::unique_ptr<viface::VIface> iface_;
+      iface_ = std::unique_ptr<viface::VIface>(new viface::VIface(name_linux_iface, true, -1));
+      std::string cmd_string = "sysctl -w net.ipv6.conf." + \
+      iface_->getName() + ".disable_ipv6=1" + "> /dev/null";
+      system(cmd_string.c_str());
+      iface_->setMTU(9000);
+      iface_->up();
+
+      ifaces_.insert(std::move(iface_));
+      logger->info("the interface {0}_{1} was created on Linux", get_name(), name);
+    }
+  }
+/********************************************************************************************/
 
   ports_by_name_.emplace(name, port);
   ports_by_index_.emplace(id, port);
@@ -441,6 +470,14 @@ void Cube::set_log_level(LogLevel level) {
 
 LogLevel Cube::get_log_level() const {
   return level_;
+}
+
+void Cube::set_shadow(bool value) {
+  shadow_ = value;
+}
+
+bool Cube::get_shadow() const {
+  return shadow_;
 }
 
 json Cube::toJson(bool include_ports) const {

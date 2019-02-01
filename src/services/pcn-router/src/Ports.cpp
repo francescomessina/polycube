@@ -26,16 +26,134 @@ Ports::Ports(polycube::service::Cube<Ports> &parent,
              std::shared_ptr<polycube::service::PortIface> port,
              const PortsJsonObject &conf)
   : Port(port), parent_(static_cast<Router&>(parent)) {
-  if(conf.macIsSet())
-    mac_ = conf.getMac();
-  else
-    mac_ = polycube::service::utils::get_random_mac();
 
-  if (!is_netmask_valid(conf.getNetmask())) //TODO: not sure that the validation is needed
-    throw std::runtime_error("Netmask is in invalid format");
+/*****************************************************************************/
+  if (parent_.getShadow()) {
+    auto ifaces = polycube::polycubed::Netlink::getInstance().get_available_ifaces();
+    for (auto &it : ifaces) {
+      auto name_iface = it.second.get_name();
+      bool flag_update_linux_iface = false;
+      if (name_iface == getName()) {
+        if (conf.ipIsSet() && conf.netmaskIsSet() && is_netmask_valid(conf.getNetmask())) {
+          ip_ = conf.getIp();
+          netmask_ = conf.getNetmask();
+          flag_update_linux_iface = true;
+        } else {
+          bool flag_ip = false;
+          // Find ip address
+          for (auto addr : it.second.get_addresses()) {
+            std::stringstream ss(addr);
+            std::string item;
+            std::vector<std::string> splittedStrings;
+            while (std::getline(ss, item, '/')) {
+              splittedStrings.push_back(item);
+            }
 
-  ip_ = conf.getIp();
-  netmask_ = conf.getNetmask();
+            unsigned char buf[sizeof(struct in_addr)];
+            int ip = inet_pton(AF_INET, splittedStrings[0].c_str(), buf);
+            if (ip == 1) {
+              flag_ip = true;
+              // set ip
+              ip_ = splittedStrings[0];
+              // set netmask
+              netmask_ = (get_netmask_from_CIDR(std::stoi(splittedStrings[1])));
+              // break when find first ipv4 address
+              break;
+            }
+          }
+          if (!flag_ip)
+            throw std::runtime_error("The interface is already present in Linux but has no an IP address, IP and netmask are mandatory");
+        }
+
+        if (conf.macIsSet()) {
+          mac_ = conf.getMac();
+          flag_update_linux_iface = true;
+        } else {
+          // Find mac address
+          unsigned char mac[IFHWADDRLEN];
+          int i;
+
+          struct ifreq ifr;
+          int fd;
+          int rv;  // return value
+
+          // determines the MAC address
+          strcpy(ifr.ifr_name, name_iface.c_str());
+          fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_IP);
+          if (fd < 0) {
+            logger()->error("error opening socket: {0}", std::strerror(errno));
+          } else {
+            rv = ioctl(fd, SIOCGIFHWADDR, &ifr);
+            if (rv >= 0)  // ok
+              memcpy(mac, ifr.ifr_hwaddr.sa_data, IFHWADDRLEN);
+            else
+              logger()->error("error determining the MAC address: {0}", std::strerror(errno));
+          }
+          close(fd);
+
+          uint64_t mac_uint;
+          memcpy(&mac_uint, mac, sizeof mac_uint);
+          mac_ = polycube::service::utils::be_uint_to_mac_string(mac_uint);
+        }
+      }
+      if (name_iface == (parent_.getName() + "_" + getName())) {
+        if (conf.macIsSet())
+          mac_ = conf.getMac();
+        else
+          mac_ = polycube::service::utils::get_random_mac();
+
+        if (conf.ipIsSet())
+          ip_ = conf.getIp();
+        else
+          throw std::runtime_error("IP address is mandatory");
+
+        if (conf.netmaskIsSet()) {
+          if (!is_netmask_valid(conf.getNetmask()))
+            throw std::runtime_error("Netmask is in invalid format");
+          netmask_ = conf.getNetmask();
+        } else
+          throw std::runtime_error("netmask is mandatory");
+
+        flag_update_linux_iface = true;
+      }
+
+      if (flag_update_linux_iface) {
+        // Is the best way?
+        std::string cmd_string = "ifconfig " + name_iface + " " + ip_ + " netmask " + netmask_;
+        system(cmd_string.c_str());
+
+        cmd_string = "ifconfig " + name_iface + " down";
+        system(cmd_string.c_str());
+
+        cmd_string = "ifconfig " + name_iface + " hw ether " + mac_;
+        system(cmd_string.c_str());
+
+        cmd_string = "ifconfig " + name_iface + " up";
+        system(cmd_string.c_str());
+
+        break;
+      }
+    }
+  } else { // Shadow = false
+    if(conf.macIsSet())
+      mac_ = conf.getMac();
+    else
+      mac_ = polycube::service::utils::get_random_mac();
+
+    if (conf.ipIsSet())
+      ip_ = conf.getIp();
+    else
+      throw std::runtime_error("IP address is mandatory");
+
+    if (conf.netmaskIsSet()) {
+      if (!is_netmask_valid(conf.getNetmask()))
+        throw std::runtime_error("Netmask is in invalid format");
+      netmask_ = conf.getNetmask();
+    } else
+      throw std::runtime_error("netmask is mandatory");
+  }
+
+/****************************************************************************/
 
   std::string port_name(getName());
 
@@ -72,7 +190,7 @@ Ports::Ports(polycube::service::Cube<Ports> &parent,
   /*
   * Add two routes in the routing table
   */
-  parent_.add_local_route(conf.getIp(), conf.getNetmask(), getName(),index);
+  parent_.add_local_route(ip_, netmask_, getName(), index);
 
   /*
   * Create an object representing the secondary IP and add the routes related to the secondary ips

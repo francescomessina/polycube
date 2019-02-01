@@ -29,11 +29,11 @@ CubeXDP::CubeXDP(const std::string &name,
                  const std::string &service_name,
                  const std::vector<std::string> &ingress_code,
                  const std::vector<std::string> &egress_code,
-                 LogLevel level, CubeType type)
+                 LogLevel level, CubeType type, bool shadow)
     : Cube(name, service_name,
            PatchPanel::get_xdp_instance(),
            PatchPanel::get_tc_instance(),
-           level, type), attach_flags_(0) {
+           level, type, shadow), attach_flags_(0) {
   switch(type) {
     // FIXME: replace by definitions in if_link.h when update to new kernel.
     case CubeType::XDP_SKB:

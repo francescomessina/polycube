@@ -32,6 +32,7 @@ CubeFactoryImpl::CubeFactoryImpl(const std::string &service_name)
       controller_xdp_(Controller::get_xdp_instance()),
       datapathlog_(DatapathLog::get_instance()) { }
 
+
 CubeFactoryImpl::~CubeFactoryImpl() {}
 
 std::shared_ptr<CubeIface> CubeFactoryImpl::create_cube(const std::string &name,
@@ -40,7 +41,7 @@ std::shared_ptr<CubeIface> CubeFactoryImpl::create_cube(const std::string &name,
                                         const log_msg_cb &log_msg,
                                         const CubeType type,
                                         const packet_in_cb &cb,
-                                        LogLevel level) {
+                                        LogLevel level, bool shadow) {
   std::shared_ptr<CubeIface> cube;
   typename std::unordered_map<std::string, std::shared_ptr<CubeIface>>::iterator iter;
   bool inserted;
@@ -49,11 +50,11 @@ std::shared_ptr<CubeIface> CubeFactoryImpl::create_cube(const std::string &name,
   case CubeType::XDP_SKB:
   case CubeType::XDP_DRV:
     cube = std::make_shared<CubeXDP>(name, service_name_, ingress_code,
-                                     egress_code, level, type);
+                                     egress_code, level, type, shadow);
     break;
   case CubeType::TC:
     cube = std::make_shared<CubeTC>(name, service_name_, ingress_code,
-                                    egress_code, level);
+                                    egress_code, level, shadow);
     break;
   default:
     throw std::runtime_error("invalid cube type");

@@ -32,18 +32,16 @@ enum {
 };
 
 Router::Router(const std::string name, const RouterJsonObject &conf, CubeType type)
-  : Cube(name, {generate_code()}, {}, type, conf.getPolycubeLoglevel()) {
+  : Cube(name, {generate_code()}, {}, type, conf.getPolycubeLoglevel(), conf.getShadow()) {
   logger()->set_pattern("[%Y-%m-%d %H:%M:%S.%e] [Router] [%n] [%l] %v");
   logger()->info("creating Router instance");
 
   addPortsList(conf.getPorts());
   addRouteList(conf.getRoute());
   addArpEntryList(conf.getArpEntry());
-
   setShadow(conf.getShadow());
-  shadow_ = conf.getShadow();
 
-  logger()->info("shadow = {0}", shadow_);
+  logger()->info("shadow = {0}", conf.getShadow());
 }
 
 Router::~Router() { }

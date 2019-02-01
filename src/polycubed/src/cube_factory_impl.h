@@ -44,7 +44,7 @@ class CubeFactoryImpl : public CubeFactory {
                          const log_msg_cb &log_msg,
                          const CubeType type,
                          const packet_in_cb &cb,
-                         LogLevel level);
+                         LogLevel level, bool shadow);
 
   void destroy_cube(const std::string &name);
 

@@ -32,12 +32,17 @@
 #include <spdlog/sinks/rotating_file_sink.h>
 #include <spdlog/sinks/stdout_sinks.h>
 
+#include "viface/viface.hpp"
+
 #include <exception>
 #include <map>
 #include <set>
 #include <vector>
 #include <string>
 #include <sstream>
+
+// netlink
+#include "netlink.h"
 
 // Print compileed eBPF C code (wrappers provided by polycubed included)
 //   as it is passed to bcc in order to get compiled and executed.
@@ -68,7 +73,7 @@ class Cube : public CubeIface {
                 const std::string &service_name,
                 PatchPanel &patch_panel_ingress_,
                 PatchPanel &patch_panel_egress_,
-                LogLevel level, CubeType type);
+                LogLevel level, CubeType type, bool shadow);
   virtual ~Cube();
 
   // It is not possible to copy nor assign nor move an cube.
@@ -103,6 +108,9 @@ class Cube : public CubeIface {
   void set_log_level(LogLevel level);
   LogLevel get_log_level() const;
 
+  void set_shadow(bool value);
+  bool get_shadow() const;
+
   void log_compileed_code(std::string& code);
 
   virtual int load(ebpf::BPF &bpf, ProgramType type) = 0;
@@ -122,6 +130,10 @@ class Cube : public CubeIface {
   static const std::string CUBE_H;
 
 protected:
+
+  bool shadow_;
+  std::set<std::unique_ptr<viface::VIface>> ifaces_;  // keeps track of Linux interfaces
+
   CubeType type_;
   void init(const std::vector<std::string> &ingress_code,
             const std::vector<std::string> &egress_code);

@@ -46,7 +46,7 @@ class CubeXDP : public Cube {
                    const std::string &service_name,
                    const std::vector<std::string> &ingress_code,
                    const std::vector<std::string> &egress_code,
-                   LogLevel level, CubeType type);
+                   LogLevel level, CubeType type, bool shadow);
 
   virtual ~CubeXDP();
 

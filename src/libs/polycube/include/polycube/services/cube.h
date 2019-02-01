@@ -47,7 +47,7 @@ class Cube {
        const std::vector<std::string> &ingress_code,
        const std::vector<std::string> &egress_code,
        const CubeType type,
-       LogLevel level = LogLevel::OFF);
+       LogLevel level = LogLevel::OFF, bool shadow = false);
   virtual ~Cube();
 
   // TODO: implement move constructor, forbid copy and asignment
@@ -118,7 +118,7 @@ class Cube<PortType>::impl {
       const std::vector<std::string> &ingress_code,
       const std::vector<std::string> &egress_code,
       const CubeType type,
-      LogLevel level);
+      LogLevel level, bool shadow = false);
   ~impl();
   void reload(const std::string &code, int index, ProgramType type);
   int add_program(const std::string &code, int index, ProgramType type);
@@ -199,7 +199,7 @@ Cube<PortType>::impl::impl(Cube<PortType> &parent_,
                  const std::vector<std::string> &ingress_code,
                  const std::vector<std::string> &egress_code,
                  const CubeType type,
-                 LogLevel level)
+                 LogLevel level, bool shadow)
     : parent_(parent_), type_(type), dismounted_(false),
     logger_(std::make_shared<spdlog::logger>(name,
     (spdlog::sinks_init_list) {
@@ -236,7 +236,7 @@ Cube<PortType>::impl::impl(Cube<PortType> &parent_,
 #endif
   cube_ = factory_->create_cube(name, ingress_code, egress_code,
                                 handle_log_msg, type, handle_packet_in,
-                                level);
+                                level, shadow);
 #ifdef LOG_COMPILATION_TIME
   auto end = std::chrono::high_resolution_clock::now();
   std::chrono::duration<double> elapsed_seconds = end - start;
@@ -419,8 +419,8 @@ Cube<PortType>::Cube(const std::string &name,
            const std::vector<std::string> &ingress_code,
            const std::vector<std::string> &egress_code,
            const CubeType type,
-           LogLevel level)
-    : pimpl_(new Cube::impl(*this, name, ingress_code, egress_code, type, level)) {}
+           LogLevel level, bool shadow)
+    : pimpl_(new Cube::impl(*this, name, ingress_code, egress_code, type, level, shadow)) {}
 
 template <class PortType>
 Cube<PortType>::~Cube() {}

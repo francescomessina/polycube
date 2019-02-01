@@ -28,6 +28,15 @@
 
 #include "PortsSecondaryip.h"
 
+#include "Utils.h"
+
+#include <net/if.h>
+#include <sys/ioctl.h>
+
+// netlink
+#include "../../../polycubed/src/netlink.h"
+
+
 class Router;
 
 #define SECONDARY_ADDRESS 5

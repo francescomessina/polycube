@@ -116,3 +116,14 @@ bool is_netmask_valid(const std::string &netmask) {
     return true;
   }
 }
+
+std::string get_netmask_from_CIDR(const int cidr) {
+  uint32_t ipv4Netmask;
+
+  ipv4Netmask = 0xFFFFFFFF;
+  ipv4Netmask <<= 32 - cidr;
+  ipv4Netmask = ntohl(ipv4Netmask);
+  struct in_addr addr = {ipv4Netmask};
+
+  return inet_ntoa(addr);
+}
