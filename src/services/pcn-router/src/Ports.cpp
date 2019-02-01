@@ -30,10 +30,12 @@ Ports::Ports(polycube::service::Cube<Ports> &parent,
 /*****************************************************************************/
   if (parent_.getShadow()) {
     auto ifaces = polycube::polycubed::Netlink::getInstance().get_available_ifaces();
+    bool find_interface = false;
     for (auto &it : ifaces) {
       auto name_iface = it.second.get_name();
       bool flag_update_linux_iface = false;
       if (name_iface == getName()) {
+        find_interface = true;
         if (conf.ipIsSet() && conf.netmaskIsSet() && is_netmask_valid(conf.getNetmask())) {
           ip_ = conf.getIp();
           netmask_ = conf.getNetmask();
@@ -70,6 +72,7 @@ Ports::Ports(polycube::service::Cube<Ports> &parent,
           flag_update_linux_iface = true;
         } else {
           // Find mac address
+          bool flag_mac = false;
           unsigned char mac[IFHWADDRLEN];
           int i;
 
@@ -84,39 +87,23 @@ Ports::Ports(polycube::service::Cube<Ports> &parent,
             logger()->error("error opening socket: {0}", std::strerror(errno));
           } else {
             rv = ioctl(fd, SIOCGIFHWADDR, &ifr);
-            if (rv >= 0)  // ok
+            if (rv >= 0) {
               memcpy(mac, ifr.ifr_hwaddr.sa_data, IFHWADDRLEN);
-            else
-              logger()->error("error determining the MAC address: {0}", std::strerror(errno));
+              flag_mac = true;
+            }
           }
           close(fd);
 
-          uint64_t mac_uint;
-          memcpy(&mac_uint, mac, sizeof mac_uint);
-          mac_ = polycube::service::utils::be_uint_to_mac_string(mac_uint);
+          if (flag_mac) {
+            uint64_t mac_uint;
+            memcpy(&mac_uint, mac, sizeof mac_uint);
+            mac_ = polycube::service::utils::be_uint_to_mac_string(mac_uint);
+          } else {
+            mac_ = polycube::service::utils::get_random_mac();
+            flag_update_linux_iface = true;
+          }
         }
       }
-      if (name_iface == (parent_.getName() + "_" + getName())) {
-        if (conf.macIsSet())
-          mac_ = conf.getMac();
-        else
-          mac_ = polycube::service::utils::get_random_mac();
-
-        if (conf.ipIsSet())
-          ip_ = conf.getIp();
-        else
-          throw std::runtime_error("IP address is mandatory");
-
-        if (conf.netmaskIsSet()) {
-          if (!is_netmask_valid(conf.getNetmask()))
-            throw std::runtime_error("Netmask is in invalid format");
-          netmask_ = conf.getNetmask();
-        } else
-          throw std::runtime_error("netmask is mandatory");
-
-        flag_update_linux_iface = true;
-      }
-
       if (flag_update_linux_iface) {
         // Is the best way?
         std::string cmd_string = "ifconfig " + name_iface + " " + ip_ + " netmask " + netmask_;
@@ -134,6 +121,10 @@ Ports::Ports(polycube::service::Cube<Ports> &parent,
         break;
       }
     }
+    if (!find_interface) {
+      throw std::runtime_error("The interface is no longer present in linux, there was a problem");
+    }
+
   } else { // Shadow = false
     if(conf.macIsSet())
       mac_ = conf.getMac();

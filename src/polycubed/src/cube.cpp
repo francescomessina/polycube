@@ -169,9 +169,8 @@ std::shared_ptr<PortIface> Cube::add_port(const std::string &name) {
     }
 
     if (!find) {
-      std::string name_linux_iface = get_name() + "_" + name;
       std::unique_ptr<viface::VIface> iface_;
-      iface_ = std::unique_ptr<viface::VIface>(new viface::VIface(name_linux_iface, true, -1));
+      iface_ = std::unique_ptr<viface::VIface>(new viface::VIface(name, true, -1));
       std::string cmd_string = "sysctl -w net.ipv6.conf." + \
       iface_->getName() + ".disable_ipv6=1" + "> /dev/null";
       system(cmd_string.c_str());
@@ -179,7 +178,7 @@ std::shared_ptr<PortIface> Cube::add_port(const std::string &name) {
       iface_->up();
 
       ifaces_.insert(std::move(iface_));
-      logger->info("the interface {0}_{1} was created on Linux", get_name(), name);
+      logger->info("the interface {0} was created on Linux", name);
     }
   }
 /********************************************************************************************/
