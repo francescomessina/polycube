@@ -120,6 +120,14 @@ public:
   std::string getMac() override;
   void setMac(const std::string &value) override;
 
+  void change_ip_linux(const std::string &name_iface, const std::string &ip_);
+  void change_netmask_linux(const std::string &name_iface, const std::string &netmask_);
+  void change_mac_linux(const std::string &name_iface, const std::string &mac_);
+
+  void setIp_polycube(const std::string &value);
+  void setNetmask_polycube(const std::string &value);
+  void setMac_polycube(const std::string &value);
+
 private:
   Router &parent_;
 

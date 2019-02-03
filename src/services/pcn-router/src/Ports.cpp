@@ -105,19 +105,11 @@ Ports::Ports(polycube::service::Cube<Ports> &parent,
         }
       }
       if (flag_update_linux_iface) {
-        // Is the best way?
-        std::string cmd_string = "ifconfig " + name_iface + " " + ip_ + " netmask " + netmask_;
-        system(cmd_string.c_str());
-
-        cmd_string = "ifconfig " + name_iface + " down";
-        system(cmd_string.c_str());
-
-        cmd_string = "ifconfig " + name_iface + " hw ether " + mac_;
-        system(cmd_string.c_str());
-
-        cmd_string = "ifconfig " + name_iface + " up";
-        system(cmd_string.c_str());
-
+        change_ip_linux(name_iface, ip_);
+        change_netmask_linux(name_iface, netmask_);
+        change_mac_linux(name_iface, mac_);
+      }
+      if (find_interface) {
         break;
       }
     }
@@ -203,7 +195,7 @@ void Ports::update(const PortsJsonObject &conf) {
   //This method updates all the object/parameter in Ports object specified in the conf JsonObject.
   //You can modify this implementation.
 
-  logger()->info("updating port");
+  logger()->debug("updating port {0}", getName());
 
   if (conf.peerIsSet()) {
 
@@ -274,9 +266,6 @@ void Ports::removeEntry(Router &parent, const std::string &name){
   //This method removes the single Ports object specified by its keys.
   //Remember to call here the remove static method for all-sub-objects of Ports.
 
-  parent.logger()->info("remove port {0}", name);
-
-
   auto port = parent.get_port(name);
 
   //remove the secondary addresses of the port (and the related routes in the routing table)
@@ -321,7 +310,13 @@ std::string Ports::getIp(){
 
 void Ports::setIp(const std::string &value){
   // This method set the ip value.
-  throw std::runtime_error("method Ports::setIp not implemented");
+  if (value == ip_)
+    return;
+  parent_.remove_local_route(ip_, netmask_, getName());
+  ip_ = value;
+  parent_.add_local_route(ip_, netmask_, getName(), this->index());
+  if (parent_.getShadow())
+    change_ip_linux(getName(), ip_);
 }
 
 std::string Ports::getNetmask(){
@@ -331,7 +326,17 @@ std::string Ports::getNetmask(){
 
 void Ports::setNetmask(const std::string &value){
   // This method set the netmask value.
-  throw std::runtime_error("method Ports::setNetmask not implemented");
+  if (!is_netmask_valid(value)) {
+    parent_.logger()->error("netmask is not valid");
+    return;
+  }
+  if (value == netmask_)
+    return;
+  parent_.remove_local_route(ip_, netmask_, getName());
+  netmask_ = value;
+  parent_.add_local_route(ip_, netmask_, getName(), this->index());
+  if (parent_.getShadow())
+    change_netmask_linux(getName(), netmask_);
 }
 
 std::string Ports::getMac(){
@@ -341,9 +346,57 @@ std::string Ports::getMac(){
 
 void Ports::setMac(const std::string &value){
   // This method set the mac value.
-  throw std::runtime_error("method Ports::setMac not implemented");
+  if (value == mac_)
+    return;
+  mac_ = value;
+  if (parent_.getShadow())
+    change_mac_linux(getName(), mac_);
 }
 
 std::shared_ptr<spdlog::logger> Ports::logger() {
   return parent_.logger();
+}
+
+/**********************/
+// Is the best way?
+void Ports::change_ip_linux(const std::string &name_iface,
+                            const std::string &ip_) {
+  std::string cmd_string = "ifconfig " + name_iface + " " + ip_ + " netmask " + netmask_;
+  system(cmd_string.c_str());
+}
+
+void Ports::change_netmask_linux(const std::string &name_iface,
+                                 const std::string &netmask_) {
+  std::string cmd_string = "ifconfig " + name_iface + " netmask " + netmask_;
+  system(cmd_string.c_str());
+}
+
+void Ports::change_mac_linux(const std::string &name_iface,
+                             const std::string &mac_) {
+  std::string cmd_string = "ifconfig " + name_iface + " down";
+  system(cmd_string.c_str());
+
+  cmd_string = "ifconfig " + name_iface + " hw ether " + mac_;
+  system(cmd_string.c_str());
+
+  cmd_string = "ifconfig " + name_iface + " up";
+  system(cmd_string.c_str());
+}
+
+
+void Ports::setIp_polycube(const std::string &value){
+  // This method set the ip value only on polycube
+  ip_ = value;
+}
+void Ports::setNetmask_polycube(const std::string &value){
+  // This method set the netmask value only on polycube
+  if (!is_netmask_valid(value)) {
+    parent_.logger()->error("netmask is not valid");
+    return;
+  }
+  netmask_ = value;
+}
+void Ports::setMac_polycube(const std::string &value){
+  // This method set the mac value only on polycube
+  mac_ = value;
 }

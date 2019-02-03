@@ -20,6 +20,9 @@
 
 #include "../interface/RouterInterface.h"
 
+// netlink
+#include "../../../polycubed/src/netlink.h"
+
 #include "polycube/services/cube.h"
 #include "polycube/services/port.h"
 #include "polycube/services/utils.h"
@@ -156,6 +159,30 @@ public:
                  std::string &netmask, const std::string &nexthop);
 
   void remove_all_routes();
+
+  /* netlink */
+  std::mutex router_mutex;
+  polycube::polycubed::Netlink netlink_instance;
+  int netlink_notification_index_route_added;
+  int netlink_notification_index_route_deleted;
+  int netlink_notification_index_link_added;
+  int netlink_notification_index_link_deleted;
+  int netlink_notification_index_new_address;
+  void netlink_notification_route_added(int ifindex, const std::string &info_route);
+  void netlink_notification_route_deleted(int ifindex, const std::string &info_route);
+  void netlink_notification_link_added(int ifindex, const std::string &iface);
+  void netlink_notification_link_deleted(int ifindex, const std::string &iface);
+  void netlink_notification_new_address(int ifindex, const std::string &info_address);
+
+  std::shared_ptr<Ports> check_interface_is_shadow(const std::string &name);
+  void remove_all_routes_on_this_port(const std::string &port_name);
+  void add_linux_route(const std::string &network, const std::string &netmask_length,
+                      const std::string &nexthop, const std::string &port_name,
+                      const int port_index);
+  void remove_linux_route(const std::string &network, const std::string &netmask_length,
+                          const std::string &nexthop, const std::string &port_name);
+
+
 
 private:
   // The following variables have been added by hand
