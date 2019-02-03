@@ -22,13 +22,15 @@
 #include "Router.h"
 
 Route::Route(Router &parent, const RouteJsonObject &conf): parent_(parent) {
-  logger()->info("creating Route instance");
-
-  //TODO: check the validity of the netmask
-
   netmask_ = conf.getNetmask();
   network_ = conf.getNetwork();
   nexthop_ = conf.getNexthop();
+
+  if (!is_netmask_valid(netmask_)) {
+    throw std::runtime_error("Netmask is not valid");
+  }
+
+  logger()->info("creating Route instance");
 
   pathCostIsSet_ = conf.pathcostIsSet();
 
@@ -52,6 +54,10 @@ Route::Route(Router &parent, const RouteJsonObject &conf): parent_(parent) {
   parent.add_active_nexthop_in_ebpf_map(network_, netmask_, nexthop_,
                             conf.getPathcost(), port_id);
 
+  if (parent.getShadow()) {
+    std::string cmd_string = "route add -net " + network_ + " netmask " + netmask_ + " gw " + nexthop_ + " dev " + interface_;
+    system(cmd_string.c_str());
+  }
 }
 
 Route::Route(Router &parent, std::string network, const std::string &netmask,
@@ -71,7 +77,6 @@ void Route::update(const RouteJsonObject &conf) {
   //This method updates all the object/parameter in Route object specified in the conf JsonObject.
   //You can modify this implementation.
 
-
   if(conf.pathcostIsSet()) {
     setPathcost(conf.getPathcost());
   }
@@ -79,7 +84,6 @@ void Route::update(const RouteJsonObject &conf) {
 
 RouteJsonObject Route::toJsonObject(){
   RouteJsonObject conf;
-
 
   conf.setInterface(getInterface());
 
@@ -140,7 +144,11 @@ void Route::removeEntry(Router &parent, const std::string &network,
   if (nexthop == "local") //FIXME: use constants for these two values
     throw std::runtime_error("Users can not delete a local route");
 
-  parent.remove_route(network, netmask, nexthop);
+  if (parent.getShadow()) {
+    std::string cmd_string = "route del -net " + network + " netmask " + netmask + " gw " + nexthop;
+    system(cmd_string.c_str());
+  } else
+    parent.remove_route(network, netmask, nexthop);
 
 }
 
@@ -203,7 +211,7 @@ uint32_t Route::getPathcost(){
 
 void Route::setPathcost(const uint32_t &value){
   //This method set the pathcost value.
-  throw std::runtime_error("method Route::setPathcost not implemented");
+  pathcost_ = value;
 }
 
 
