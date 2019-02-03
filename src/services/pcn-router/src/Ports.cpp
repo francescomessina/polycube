@@ -28,7 +28,18 @@ Ports::Ports(polycube::service::Cube<Ports> &parent,
   : Port(port), parent_(static_cast<Router&>(parent)) {
 
 /*****************************************************************************/
-  if (parent_.getShadow()) {
+  bool is_linux_port = false;
+  if (getName().find("_direct_to_linux") != std::string::npos) {
+    is_linux_port = true;
+
+    setPeer(conf.getPeer());
+    ip_ = "-";
+    netmask_ = "-";
+    mac_ = "-";
+    return;
+  }
+
+  if (parent_.getShadow() && !is_linux_port) {
     auto ifaces = polycube::polycubed::Netlink::getInstance().get_available_ifaces();
     bool find_interface = false;
     for (auto &it : ifaces) {
@@ -117,7 +128,10 @@ Ports::Ports(polycube::service::Cube<Ports> &parent,
       throw std::runtime_error("The interface is no longer present in linux, there was a problem");
     }
 
-  } else { // Shadow = false
+  }
+
+  // if shadow is false
+  if (!parent_.getShadow()) {
     if(conf.macIsSet())
       mac_ = conf.getMac();
     else
@@ -254,6 +268,15 @@ void Ports::create(Router &parent, const std::string &name, const PortsJsonObjec
   //Please remember to call here the create static method for all sub-objects of Ports.
 
   parent.add_port<PortsJsonObject>(name, conf);
+
+  if (parent.getShadow()) {
+    std::string name_port_direct_to_linux = name + "_direct_to_linux";
+    PortsJsonObject conf_port_linux;
+    conf_port_linux.setName(name_port_direct_to_linux);
+    conf_port_linux.setPeer(name);
+
+    parent.add_port<PortsJsonObject>(name_port_direct_to_linux, conf_port_linux);
+  }
 }
 
 std::shared_ptr<Ports> Ports::getEntry(Router &parent, const std::string &name){
