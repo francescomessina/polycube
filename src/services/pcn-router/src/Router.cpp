@@ -981,6 +981,13 @@ void Router::netlink_notification_link_added(int ifindex, const std::string &ifa
       }
     }
 
+    if (new_ip == "-" && new_netmask == "-") {
+      logger()->info("the port {0} is down", iface);
+      port->set_peer("");
+      return;
+    }
+
+
     if ((old_ip != new_ip && new_ip != "-") || (old_netmask != new_netmask && new_netmask != "-")) {
       remove_local_route(old_ip, old_netmask, port->name());
       add_local_route(new_ip, new_netmask, port->name(), port->index());
