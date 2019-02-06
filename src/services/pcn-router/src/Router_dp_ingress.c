@@ -43,7 +43,9 @@ enum {
   SLOWPATH_ARP_REPLY = 1,
   SLOWPATH_ARP_LOOKUP_MISS,
   SLOWPATH_TTL_EXCEEDED,
-  SLOWPATH_PKT_FOR_ROUTER
+  SLOWPATH_PKT_FOR_ROUTER,
+  INGRESS_TRAFFIC_FOR_LINUX,
+  EGRESS_TRAFFIC_FOR_LINUX
 };
 /* Routing Table Key */
 struct rt_k {
@@ -66,6 +68,12 @@ struct r_port {
   __be32 secondary_netmask[SECONDARY_ADDRESS];
   __be64 mac : 48;
 };
+
+/******************************************************************/
+// BPF table of single element that saves the shadow attribute
+BPF_TABLE_SHARED("hash", int, bool, shadow_, 1);
+/****************************************************************/
+
 BPF_F_TABLE("lpm_trie", struct rt_k, struct rt_v, routing_table,
             ROUTING_TABLE_DIM, BPF_F_NO_PREALLOC);
 /*
@@ -198,6 +206,19 @@ static inline int send_packet_to_output_interface(
   bpf_l3_csum_replace(ctx, IP_CSUM_OFFSET, 0, l3sum, 0);
   #endif
 
+  /****************************************************************************
+  // PARTE CHE FUNZIONA MA SOLO CON I PACCHETTI CHE HANNO UNA CORRISPONDENZA NELLA
+  // ROUTING TABLE DEL DATAPATH (BISOGNA ESTENDERLA) - NON VEDO PER ESEMPIO Arp
+  // OPPURE IL TRAFFICO LOCALE
+
+  // Set metadata and send packet to slowpath
+  u32 mdata[3];
+  mdata[0] = out_port;
+
+  return pcn_pkt_controller_with_metadata(ctx, md, INGRESS_TRAFFIC_FOR_LINUX, mdata);
+
+  /****************************************************************************/
+
   return pcn_pkt_redirect(ctx, md, out_port);
 }
 static inline int search_secondary_address(__be32 *arr, __be32 ip) {
@@ -275,9 +296,14 @@ static int handle_rx(struct CTXTYPE *ctx, struct pkt_metadata *md) {
 
   pcn_log(ctx, LOG_TRACE, "in_port: %d, proto: 0x%x, mac_src: %M mac_dst: %M", md->in_port, bpf_htons(eth->proto), eth->src, eth->dst);
 
+
+/****************************************************************************/
+  pcn_log(ctx, LOG_INFO, "in_port: %d, proto: 0x%x, mac_src: %M mac_dst: %M", md->in_port, bpf_htons(eth->proto), eth->src, eth->dst);
+/******************************************************************************/
+
   struct r_port *in_port = router_port.lookup(&md->in_port);
   if (!in_port) {
-    //pcn_log(ctx, LOG_ERR, "received packet from non valid port: %d", md->in_port);
+    pcn_log(ctx, LOG_ERR, "received packet from non valid port: %d", md->in_port);
     goto DROP;
   }
 /*
@@ -290,6 +316,19 @@ unicast address of the router port.  If not, drop the packet.
     goto DROP;
   }
 #endif
+
+/*************************************************
+  unsigned int zero = 0;
+  bool *shadow = shadow_.lookup(&zero);
+  if (!shadow) {
+    return RX_DROP;
+  }
+  if (*shadow)
+    pcn_log(ctx, LOG_INFO, "shadow true");
+  else
+    pcn_log(ctx, LOG_INFO, "shadow false");
+/*************************************************/
+
   switch (eth->proto) {
   case htons(ETH_P_IP):
     goto IP;  // ipv4 packet
@@ -314,6 +353,14 @@ IP:;  // ipv4 packet
   }
   /* Check if the pkt destination is one local interface of the router */
   if(rt_entry_p->type==TYPE_LOCALINTERFACE) {
+
+    /***************************************************************************
+    if (*shadow) {
+      pcn_log(ctx, LOG_INFO, "pacchetto ip (LOCAL) in_port: %d, ip_src: %I ip_dst: %I", md->in_port, ip->saddr, ip->daddr);
+      return RX_OK;
+    }
+    /***************************************************************************/
+
     return send_packet_for_router_to_slowpath(ctx, md, eth, ip);
   }
   if (ip->ttl == 1) {
@@ -333,6 +380,12 @@ ARP:;  // arp packet
   struct arp_hdr *arp = data + sizeof(*eth);
   if (data + sizeof(*eth) + sizeof(*arp) > data_end)
     goto DROP;
+
+  /*************************************************
+  if (*shadow)
+    return RX_OK;
+  /*************************************************/
+
   if (arp->ar_op == bpf_htons(ARPOP_REQUEST))  // arp request?
     return send_arp_reply(ctx, md, eth, arp, in_port);
   else if (arp->ar_op == bpf_htons(ARPOP_REPLY))  // arp reply

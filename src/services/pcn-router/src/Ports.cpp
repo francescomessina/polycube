@@ -32,10 +32,19 @@ Ports::Ports(polycube::service::Cube<Ports> &parent,
   if (getName().find("_direct_to_linux") != std::string::npos) {
     is_linux_port = true;
 
-    setPeer(conf.getPeer());
-    ip_ = "-";
-    netmask_ = "-";
-    mac_ = "-";
+    auto router_port = parent.get_hash_table<uint16_t, r_port>("router_port");
+    r_port value {
+      .ip = 0,
+      .netmask = 0,
+      .secondary_ip = {},
+      .secondary_netmask = {},
+      .mac = 0,
+    };
+    uint16_t index = this->index();
+
+    router_port.set(index, value);
+    logger()->info("added new port direct to linux: {0} (index: {1})",getName(),index);
+
     return;
   }
 
@@ -273,7 +282,6 @@ void Ports::create(Router &parent, const std::string &name, const PortsJsonObjec
     std::string name_port_direct_to_linux = name + "_direct_to_linux";
     PortsJsonObject conf_port_linux;
     conf_port_linux.setName(name_port_direct_to_linux);
-    conf_port_linux.setPeer(name);
 
     parent.add_port<PortsJsonObject>(name_port_direct_to_linux, conf_port_linux);
   }

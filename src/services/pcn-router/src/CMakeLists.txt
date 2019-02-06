@@ -25,7 +25,8 @@ add_library(pcn-router SHARED
   Utils.cpp)
 
 # load ebpf datapath code in std::string variables
-load_file_as_variable(pcn-router Router_dp.c router_code)
+load_file_as_variable(pcn-router Router_dp_ingress.c router_code_ingress)
+load_file_as_variable(pcn-router Router_dp_egress.c router_code_egress)
 
 target_link_libraries(pcn-router
   polycube
