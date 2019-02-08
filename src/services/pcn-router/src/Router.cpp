@@ -31,9 +31,7 @@ enum {
   SLOWPATH_ARP_REPLY = 1,
   SLOWPATH_ARP_LOOKUP_MISS,
   SLOWPATH_TTL_EXCEEDED,
-  SLOWPATH_PKT_FOR_ROUTER,
-  INGRESS_TRAFFIC_FOR_LINUX,
-  EGRESS_TRAFFIC_FOR_LINUX
+  SLOWPATH_PKT_FOR_ROUTER
 };
 
 Router::Router(const std::string name, const RouterJsonObject &conf, CubeType type)
@@ -194,14 +192,6 @@ void Router::packet_in(Ports &port,
 
   case SLOWPATH_PKT_FOR_ROUTER:
     handle_router_pkt(port, md, packet);
-    break;
-
-  case INGRESS_TRAFFIC_FOR_LINUX:
-    handle_pkt_for_linux(port, md, packet);
-    break;
-
-  case EGRESS_TRAFFIC_FOR_LINUX:
-    egress_traffic_for_linux(port, md, packet);
     break;
 
   default:
@@ -793,7 +783,7 @@ void Router::generate_arp_request(Port &port, PacketInMetadata &md,
   IPv4Address target_ip_addr(target_ip);
   IPv4Address src_ip_addr(src_ip);
   HWAddress<6> src_mac_addr(src_mac);
-  logger()->debug("sending ARP request on port {0} 'who has {1} tell MAC to {2}",
+  logger()->info("sending ARP request on port {0} 'who has {1} tell MAC to {2}",
                 port_out->name(), target_ip_addr.to_string(),
                 src_ip_addr.to_string());
   EthernetII arp_request_packet = ARP::make_arp_request(

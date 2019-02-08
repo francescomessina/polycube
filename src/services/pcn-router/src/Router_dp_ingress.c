@@ -43,9 +43,7 @@ enum {
   SLOWPATH_ARP_REPLY = 1,
   SLOWPATH_ARP_LOOKUP_MISS,
   SLOWPATH_TTL_EXCEEDED,
-  SLOWPATH_PKT_FOR_ROUTER,
-  INGRESS_TRAFFIC_FOR_LINUX,
-  EGRESS_TRAFFIC_FOR_LINUX
+  SLOWPATH_PKT_FOR_ROUTER
 };
 /* Routing Table Key */
 struct rt_k {
@@ -205,20 +203,6 @@ static inline int send_packet_to_output_interface(
   ip->ttl = (__u8)new_ttl;
   bpf_l3_csum_replace(ctx, IP_CSUM_OFFSET, 0, l3sum, 0);
   #endif
-
-  /****************************************************************************
-  // PARTE CHE FUNZIONA MA SOLO CON I PACCHETTI CHE HANNO UNA CORRISPONDENZA NELLA
-  // ROUTING TABLE DEL DATAPATH (BISOGNA ESTENDERLA) - NON VEDO PER ESEMPIO Arp
-  // OPPURE IL TRAFFICO LOCALE
-
-  // Set metadata and send packet to slowpath
-  u32 mdata[3];
-  mdata[0] = out_port;
-
-  return pcn_pkt_controller_with_metadata(ctx, md, INGRESS_TRAFFIC_FOR_LINUX, mdata);
-
-  /****************************************************************************/
-
   return pcn_pkt_redirect(ctx, md, out_port);
 }
 static inline int search_secondary_address(__be32 *arr, __be32 ip) {

@@ -270,7 +270,7 @@ PortsJsonObject Ports::toJsonObject(){
   return conf;
 }
 
-
+/***************************************************************************************/
 void Ports::create(Router &parent, const std::string &name, const PortsJsonObject &conf){
 
   //This method creates the actual Ports object given thee key param.
@@ -286,6 +286,7 @@ void Ports::create(Router &parent, const std::string &name, const PortsJsonObjec
     parent.add_port<PortsJsonObject>(name_port_direct_to_linux, conf_port_linux);
   }
 }
+/*********************************************************************************/
 
 std::shared_ptr<Ports> Ports::getEntry(Router &parent, const std::string &name){
   // This method retrieves the pointer to Ports object specified by its keys.
@@ -314,6 +315,14 @@ void Ports::removeEntry(Router &parent, const std::string &name){
   parent.remove_port(name);
 
   parent.logger()->info("port {0} was removed", name);
+
+/******************************************************************************/
+  //remove also the port direct to linux
+  if (parent.getShadow()) {
+    router_port.remove(index + 1);
+    parent.remove_port(name + "_direct_to_linux");
+  }
+/******************************************************************************/
 }
 
 std::vector<std::shared_ptr<Ports>> Ports::get(Router &parent){
