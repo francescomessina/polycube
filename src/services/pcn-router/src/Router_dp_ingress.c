@@ -296,11 +296,6 @@ static int handle_rx(struct CTXTYPE *ctx, struct pkt_metadata *md) {
 
   pcn_log(ctx, LOG_TRACE, "in_port: %d, proto: 0x%x, mac_src: %M mac_dst: %M", md->in_port, bpf_htons(eth->proto), eth->src, eth->dst);
 
-
-/****************************************************************************/
-  pcn_log(ctx, LOG_INFO, "in_port: %d, proto: 0x%x, mac_src: %M mac_dst: %M", md->in_port, bpf_htons(eth->proto), eth->src, eth->dst);
-/******************************************************************************/
-
   struct r_port *in_port = router_port.lookup(&md->in_port);
   if (!in_port) {
     pcn_log(ctx, LOG_ERR, "received packet from non valid port: %d", md->in_port);
@@ -343,6 +338,12 @@ IP:;  // ipv4 packet
     goto DROP;
 
   pcn_log(ctx, LOG_TRACE, "ttl: %u", ip->ttl);
+
+
+/****************************************************************************/
+  //pcn_log(ctx, LOG_INFO, "in_port: %d, proto: IP, ip_src: %I ip_dst: %I", md->in_port, ip->saddr, ip->daddr);
+/******************************************************************************/
+
 
   // find entry in routing table
   struct rt_k k = {32, ip->daddr};

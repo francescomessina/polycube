@@ -61,6 +61,8 @@ using polycube::service::CubeIface;
 using polycube::service::PortIface;
 using polycube::service::ProgramType;
 using polycube::service::CubeType;
+using polycube::service::PacketIn;
+using polycube::service::PortStatus;
 
 using json = nlohmann::json;
 

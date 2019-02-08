@@ -42,31 +42,47 @@ CubeTC::CubeTC(const std::string &name,
   if (shadow) {
     auto res = ingress_programs_[0]->open_perf_buffer("shadow_slowpath", call_back_proxy, nullptr, this);
     if (res.code() != 0) {
-      logger->error("cannot open perf ring buffer for controller: {0}", res.msg());
-      throw BPFError("cannot open controller perf buffer");
+      logger->error("cannot open perf ring buffer for shadow_slowpath: {0}", res.msg());
+      throw BPFError("cannot open shadow_slowpath perf buffer");
     }
-
     start();
   }
-
 }
 
 void CubeTC::call_back_proxy(void *cb_cookie, void *data, int data_size) {
-  spdlog::get("polycubed")->info("Packet received");
   PacketIn *md = static_cast<PacketIn *>(data);
 
   uint8_t *data_ = static_cast<uint8_t *>(data);
   data_ += sizeof(PacketIn);
 
   CubeTC *cube = static_cast<CubeTC *>(cb_cookie);
+  if (cube == nullptr)
+    throw std::runtime_error("Bad cube");
 
-  std::vector<uint8_t> packet(data_, data_ + md->packet_len);
+  try {
+    std::vector<uint8_t> packet(data_, data_ + md->packet_len);
 
-  polycube::service::PortIface *port_1 = cube->get_port("p1_direct_to_linux").get();
-  Port *port = (Port*)port_1;
-  port->send_packet_out(packet);
-  spdlog::get("polycubed")->info("Packet sent");
+    // se port_id dispari arriva da linux, se pari arriva da polycube
+    // per il momento i dispari li butto, non li considero
+    if (md->port_id % 2) {
+      spdlog::get("polycubed")->debug("port_id = {0} - pacchetto arriva da linux", md->port_id);
+      return;
+    }
 
+    auto in_port = cube->ports_by_index_.at(md->port_id);
+    std::string name_port_linux = in_port->name() + "_direct_to_linux";
+
+    PortIface *port_linux = cube->get_port(name_port_linux).get();
+    Port *port_linux_ = (Port*)port_linux;
+
+    if (port_linux_->get_status() == polycube::service::PortStatus::UP) {
+      port_linux_->send_packet_out(packet);
+    }
+
+  } catch(const std::exception &e) {
+    // TODO: ignore the problem, what else can we do?
+    spdlog::get("polycubed")->warn("Error processing packet in event: {}", e.what());
+  }
 }
 
 void CubeTC::start() {
@@ -101,7 +117,7 @@ CubeTC::~CubeTC() {
 }
 
 void CubeTC::do_compile(int id, ProgramType type, LogLevel level_,
-                        ebpf::BPF &bpf, const std::string &code, int index) {
+                        ebpf::BPF &bpf, const std::string &code, int index, bool shadow) {
   // compile ebpf program
   std::string all_code(CUBE_H + WRAPPERC + \
    DatapathLog::get_instance().parse_log(code));
@@ -112,6 +128,7 @@ void CubeTC::do_compile(int id, ProgramType type, LogLevel level_,
 
   std::vector<std::string> cflags_(cflags);
   cflags_.push_back("-DCUBE_ID=" + std::to_string(id));
+  cflags_.push_back("-DSHADOW=" + std::to_string(shadow));
   cflags_.push_back("-DLOG_LEVEL=LOG_" + logLevelString(level_));
   cflags_.push_back(std::string("-DCTXTYPE=") + std::string("__sk_buff"));
 
@@ -177,7 +194,7 @@ void CubeTC::do_unload(ebpf::BPF &bpf) {
 
 void CubeTC::compile(ebpf::BPF &bpf, const std::string &code, int index,
                      ProgramType type) {
-  do_compile(get_id(), type, level_, bpf, code, index);
+  do_compile(get_id(), type, level_, bpf, code, index, shadow_);
 }
 
 int CubeTC::load(ebpf::BPF &bpf, ProgramType type) {
@@ -193,10 +210,27 @@ BPF_TABLE("extern", int, int, nodes, _POLYCUBE_MAX_NODES);
 BPF_PERF_OUTPUT(shadow_slowpath);
 
 static __always_inline
+int to_controller_shadow(struct CTXTYPE *skb, struct pkt_metadata md) {
+  int r = shadow_slowpath.perf_submit_skb(skb, md.packet_len, &md, sizeof(md));
+  if (r != 0) {
+    bpf_trace_printk("Shadow controller error: %d\n", r);
+  }
+  return r;
+}
+
+static __always_inline
 int forward(struct CTXTYPE *skb, u32 out_port) {
   u32 *next = forward_chain_.lookup(&out_port);
   if (next) {
-    //to_controller(skb, 0);
+
+    if (SHADOW) {
+      struct pkt_metadata md = {};
+      md.in_port = out_port;
+      md.cube_id = CUBE_ID;
+      md.packet_len = skb->len;
+      to_controller_shadow(skb, md);
+    }
+
     skb->cb[0] = *next;
     //bpf_trace_printk("fwd: port: %d, next: 0x%x\n", out_port, *next);
     nodes.call(skb, *next & 0xffff);
@@ -213,15 +247,6 @@ int to_controller(struct CTXTYPE *skb, u16 reason) {
   return TC_ACT_OK;
 }
 
-static __always_inline
-int to_controller_shadow(struct CTXTYPE *ctx, struct pkt_metadata md) {
-  int r = shadow_slowpath.perf_submit_skb(ctx, md.packet_len, &md, sizeof(md));
-  if (r != 0) {
-    bpf_trace_printk("Shadow controller error\n");
-  }
-  return 0;
-}
-
 int handle_rx_wrapper(struct CTXTYPE *skb) {
   //bpf_trace_printk("" MODULE_UUID_SHORT ": rx:%d\n", skb->cb[0]);
   struct pkt_metadata md = {};
@@ -231,7 +256,8 @@ int handle_rx_wrapper(struct CTXTYPE *skb) {
   md.packet_len = skb->len;
   skb->cb[0] = md.in_port << 16 | CUBE_ID;
 
-  to_controller_shadow(skb, md);
+  if (SHADOW)
+    to_controller_shadow(skb, md);
 
   int rc = handle_rx(skb, &md);
 
