@@ -30,6 +30,8 @@
 #include <set>
 #include <vector>
 
+using polycube::service::PacketIn;
+
 namespace polycube {
 namespace polycubed {
 
@@ -57,6 +59,13 @@ class CubeTC : public Cube {
   void compile(ebpf::BPF &bpf, const std::string &code, int index, ProgramType type);
   int load(ebpf::BPF &bpf, ProgramType type);
   void unload(ebpf::BPF &bpf, ProgramType type);
+
+  static void call_back_proxy(void *cb_cookie, void *data, int data_size);
+
+  void start();
+  void stop();
+  bool stop_;
+  std::unique_ptr<std::thread> pkt_in_thread_;
 
   static const std::string WRAPPERC;
 };

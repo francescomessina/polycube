@@ -19,6 +19,7 @@
 #include "datapath_log.h"
 #include "exceptions.h"
 #include "patchpanel.h"
+#include "port.h"
 
 #include <iostream>
 
@@ -37,10 +38,65 @@ CubeTC::CubeTC(const std::string &name,
   // it has to be done here becuase it needs the load, compile methods
   // to be ready
   Cube::init(ingress_code, egress_code);
+
+  if (shadow) {
+    auto res = ingress_programs_[0]->open_perf_buffer("shadow_slowpath", call_back_proxy, nullptr, this);
+    if (res.code() != 0) {
+      logger->error("cannot open perf ring buffer for controller: {0}", res.msg());
+      throw BPFError("cannot open controller perf buffer");
+    }
+
+    start();
+  }
+
+}
+
+void CubeTC::call_back_proxy(void *cb_cookie, void *data, int data_size) {
+  spdlog::get("polycubed")->info("Packet received");
+  PacketIn *md = static_cast<PacketIn *>(data);
+
+  uint8_t *data_ = static_cast<uint8_t *>(data);
+  data_ += sizeof(PacketIn);
+
+  CubeTC *cube = static_cast<CubeTC *>(cb_cookie);
+
+  std::vector<uint8_t> packet(data_, data_ + md->packet_len);
+
+  polycube::service::PortIface *port_1 = cube->get_port("p1_direct_to_linux").get();
+  Port *port = (Port*)port_1;
+  port->send_packet_out(packet);
+  spdlog::get("polycubed")->info("Packet sent");
+
+}
+
+void CubeTC::start() {
+  // create a thread that polls the perf ring buffer
+  auto f = [&]() -> void {
+    stop_ = false;
+    while (!stop_) {
+      ingress_programs_[0]->poll_perf_buffer("shadow_slowpath", 500);
+    }
+
+    // TODO: this causes a segmentation fault
+    //  logger->debug("controller: stopping");
+  };
+
+  std::unique_ptr<std::thread> uptr(new std::thread(f));
+  pkt_in_thread_ = std::move(uptr);
+}
+
+void CubeTC::stop() {
+  //  logger->debug("controller stop()");
+  stop_ = true;
+  if (pkt_in_thread_) {
+    //  logger->debug("trying to join controller thread");
+    pkt_in_thread_->join();
+  }
 }
 
 CubeTC::~CubeTC() {
   // it cannot be done in Cube::~Cube() because calls a virtual method
+  stop();
   Cube::uninit();
 }
 
@@ -134,11 +190,13 @@ void CubeTC::unload(ebpf::BPF &bpf, ProgramType type) {
 
 const std::string CubeTC::WRAPPERC = R"(
 BPF_TABLE("extern", int, int, nodes, _POLYCUBE_MAX_NODES);
+BPF_PERF_OUTPUT(shadow_slowpath);
 
 static __always_inline
 int forward(struct CTXTYPE *skb, u32 out_port) {
   u32 *next = forward_chain_.lookup(&out_port);
   if (next) {
+    //to_controller(skb, 0);
     skb->cb[0] = *next;
     //bpf_trace_printk("fwd: port: %d, next: 0x%x\n", out_port, *next);
     nodes.call(skb, *next & 0xffff);
@@ -155,6 +213,15 @@ int to_controller(struct CTXTYPE *skb, u16 reason) {
   return TC_ACT_OK;
 }
 
+static __always_inline
+int to_controller_shadow(struct CTXTYPE *ctx, struct pkt_metadata md) {
+  int r = shadow_slowpath.perf_submit_skb(ctx, md.packet_len, &md, sizeof(md));
+  if (r != 0) {
+    bpf_trace_printk("Shadow controller error\n");
+  }
+  return 0;
+}
+
 int handle_rx_wrapper(struct CTXTYPE *skb) {
   //bpf_trace_printk("" MODULE_UUID_SHORT ": rx:%d\n", skb->cb[0]);
   struct pkt_metadata md = {};
@@ -163,6 +230,9 @@ int handle_rx_wrapper(struct CTXTYPE *skb) {
   md.cube_id = CUBE_ID;
   md.packet_len = skb->len;
   skb->cb[0] = md.in_port << 16 | CUBE_ID;
+
+  to_controller_shadow(skb, md);
+
   int rc = handle_rx(skb, &md);
 
   switch (rc) {

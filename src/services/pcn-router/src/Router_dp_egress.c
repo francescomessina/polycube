@@ -41,23 +41,5 @@ BPF_TABLE("extern", int, bool, shadow_, 1);
 
 static int handle_rx(struct CTXTYPE *ctx, struct pkt_metadata *md) {
   pcn_log(ctx, LOG_DEBUG, "EGRESS: Packet ongoing on port %d", md->in_port);
-
-// in realtà credo che questa funzione serva solo per il traffico in egress su un interfaccia fisica
-// quando si tratta di interfaccie interne, quelle sono chiamate a funzioni ebpf che questa funzione non cattura
-// bisogna trovare un altro modo
-
-  unsigned int zero = 0;
-  bool *shadow = shadow_.lookup(&zero);
-  if (!shadow) {
-    return RX_DROP;
-  }
-
-  if (*shadow) {
-    pcn_log(ctx, LOG_INFO, "EGRESS: shadow true, Packet ongoing on port %d", md->in_port);
-    u32 mdata[3];
-    mdata[0] = md->in_port;
-    return pcn_pkt_controller_with_metadata_stack(ctx, md, EGRESS_TRAFFIC_FOR_LINUX, mdata);
-  }
-
   return RX_OK;
 }
