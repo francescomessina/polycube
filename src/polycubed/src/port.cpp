@@ -147,13 +147,26 @@ void Port::connect(Port &p1, Node &iface) {
 }
 
 void Port::connect(Port &p1, Port &p2) {
-  std::lock_guard<std::mutex> guard1(p1.port_mutex_);
-  std::lock_guard<std::mutex> guard2(p2.port_mutex_);
-  p1.logger->debug("connecting ports {0} and {1}", p1.name_, p2.name_);
-  p1.peer_port_ = &p2;
-  p2.peer_port_ = &p1;
-  p1.parent_.update_forwarding_table(p1.index_, p2.serialize_ingress());
-  p2.parent_.update_forwarding_table(p2.index_, p1.serialize_ingress());
+  {
+    std::lock_guard<std::mutex> guard1(p1.port_mutex_);
+    std::lock_guard<std::mutex> guard2(p2.port_mutex_);
+    p1.logger->debug("connecting ports {0} and {1}", p1.name_, p2.name_);
+    p1.peer_port_ = &p2;
+    p2.peer_port_ = &p1;
+    p1.parent_.update_forwarding_table(p1.index_, p2.serialize_ingress());
+    p2.parent_.update_forwarding_table(p2.index_, p1.serialize_ingress());
+  }
+
+  if (p1.parent_.get_shadow()) {
+    auto port_linux = (p1.parent_.get_port(p1.name_ + "_direct_to_linux")).get();
+    Port *p1_linux = (Port*)port_linux;
+    p1_linux->set_peer(p1.name_);
+  }
+  if (p2.parent_.get_shadow()) {
+    auto port_linux = (p2.parent_.get_port(p2.name_ + "_direct_to_linux")).get();
+    Port *p2_linux = (Port*)port_linux;
+    p2_linux->set_peer(p2.name_);
+  }
 }
 
 void Port::unconnect(Port &p1, Node &iface) {

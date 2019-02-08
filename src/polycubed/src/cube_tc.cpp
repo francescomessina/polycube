@@ -112,7 +112,8 @@ void CubeTC::stop() {
 
 CubeTC::~CubeTC() {
   // it cannot be done in Cube::~Cube() because calls a virtual method
-  stop();
+  if (shadow_)
+    stop();
   Cube::uninit();
 }
 
