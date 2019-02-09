@@ -313,11 +313,9 @@ void Ports::removeEntry(Router &parent, const std::string &name){
   for (auto &entry : arp_entries) {
     auto key = entry.first;
     auto value = entry.second;
-    auto port = parent.get_port(value.port);
 
-    if (port->name() == name) {
+    if (port->index() == value.port)
       arp_table.remove(key);
-    }
   }
 
   //remove the port from the datapath
