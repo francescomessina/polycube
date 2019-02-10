@@ -276,6 +276,10 @@ void Ports::create(Router &parent, const std::string &name, const PortsJsonObjec
   //This method creates the actual Ports object given thee key param.
   //Please remember to call here the create static method for all sub-objects of Ports.
 
+  if (name.find("_direct_to_linux") != std::string::npos) {
+    throw std::runtime_error("It is not possible to insert in the name of an interface '_direct_to_linux'"); 
+  }
+
   parent.add_port<PortsJsonObject>(name, conf);
 
   if (parent.getShadow()) {

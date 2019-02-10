@@ -148,7 +148,9 @@ RouterJsonObject Router::toJsonObject(){
   conf.setShadow(getShadow());
 
   for(auto &i : getPortsList()){
-    conf.addPorts(i->toJsonObject());
+    if (i->name().find("_direct_to_linux") == std::string::npos) {
+      conf.addPorts(i->toJsonObject());
+    }
   }
 
   //Remove comments when you implement all sub-methods
