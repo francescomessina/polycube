@@ -189,7 +189,7 @@ void Router::packet_in(Ports &port,
     break;
 
   case SLOWPATH_ARP_REPLY:
-    generate_arp_reply(port, md, packet);
+    notify_arp_reply(port, md, packet);
     break;
 
   case SLOWPATH_PKT_FOR_ROUTER:
@@ -596,61 +596,6 @@ void Router::find_new_active_nexthop(const std::string &network,
 /*
 * Methods to manage packets coming from the fast path
 */
-
-/**********************************************************************************/
-void Router::egress_traffic_for_linux(Port &port, PacketInMetadata &md,
-                               const std::vector<uint8_t> &packet) {
-  EthernetII p(&packet[0], packet.size());
-
-  int index_in_port = md.metadata[0];
-  logger()->info("EGRESS index port {0}", (index_in_port + 1));
-  // so che le porte verso linux hanno indice dispari (+1 dell'indice della in_porta)
-  auto port_out_linux = get_port(index_in_port + 1);
-
-  if (port_out_linux->get_status() != polycube::service::PortStatus::DOWN)
-    logger()->info("EGRESS status port {0} UP", port_out_linux->name());
-  if (port_out_linux->get_status() == polycube::service::PortStatus::DOWN)
-    logger()->info("EGRESS status port {0} DOWN", port_out_linux->name());
-
-  if ((port_out_linux->get_status() == polycube::service::PortStatus::UP) &&
-      (port_out_linux->name().find("_direct_to_linux") != std::string::npos)) {
-    logger()->info("EGRESS prima di inviare Packet to {0}", port_out_linux->name());
-    port_out_linux->send_packet_out(p);
-    logger()->info("EGRESS dopo di inviare Packet to {0}", port_out_linux->name());
-  }
-}
-
-void Router::handle_pkt_for_linux(Port &port, PacketInMetadata &md,
-                               const std::vector<uint8_t> &packet) {
-  EthernetII p(&packet[0], packet.size());
-
-  std::string linux_port = port.name() + "_direct_to_linux";
-
-  int index = md.metadata[0];
-  auto port_out = get_port(index);
-  auto port_out_linux = get_port(index + 1);
-
-  port_out->send_packet_out(p);
-
-  if (port_out_linux->get_status() == polycube::service::PortStatus::UP) {
-    port_out_linux->send_packet_out(p);
-    logger()->info("Packet sent to ports: {0} and {1}", port_out->name(), port_out_linux->name());
-  }
-
-
-  /*
-  for (auto &it : get_ports()) {
-    if (it->name() == port.name()) {
-      continue;
-    }
-    it->send_packet_out(p);
-    logger()->trace("Packet sent to port {0} as result of the redirect to Linux", it->name());
-  }
-  */
-}
-
-/***************************************************************************************/
-
 void Router::handle_router_pkt(Port &port, PacketInMetadata &md,
                                const std::vector<uint8_t> &packet) {
 
@@ -671,6 +616,13 @@ void Router::handle_router_pkt(Port &port, PacketInMetadata &md,
                    src_ip.to_string(), dst_ip.to_string());
       EthernetII echoreply_packet =
           make_echo_reply(p, src_ip, dst_ip, icmp_payload);
+
+      if (getShadow()) {
+        auto port_out_linux = get_port(port.index() + 1);
+        if (port_out_linux->get_status() == polycube::service::PortStatus::UP) {
+          port_out_linux->send_packet_out(echoreply_packet);
+        }
+      }
 
       port.send_packet_out(echoreply_packet);
     }
@@ -742,6 +694,12 @@ void Router::generate_icmp_ttlexceed(Port &port, PacketInMetadata &md,
   // add ICMP message in the response packet
   icmp_packet /= icmp;
 
+  if (getShadow()) {
+    auto port_out_linux = get_port(port.index() + 1);
+    if (port_out_linux->get_status() == polycube::service::PortStatus::UP)
+      port_out_linux->send_packet_out(icmp_packet);
+  }
+
   port.send_packet_out(icmp_packet);
 }
 
@@ -792,11 +750,17 @@ void Router::generate_arp_request(Port &port, PacketInMetadata &md,
       target_ip_addr, src_ip_addr,
       src_mac_addr); // check if parameters format are correct
 
+  if (getShadow()) {
+    auto port_out_linux = get_port(index + 1);
+    if (port_out_linux->get_status() == polycube::service::PortStatus::UP)
+      port_out_linux->send_packet_out(arp_request_packet);
+  }
+
   port_out->send_packet_out(arp_request_packet);
 }
 
 
-void Router::generate_arp_reply(Port &port, PacketInMetadata &md,
+void Router::notify_arp_reply(Port &port, PacketInMetadata &md,
                        const std::vector<uint8_t> &packet) {
   EthernetII arp_reply(&packet[0], packet.size());
 
@@ -831,6 +795,12 @@ void Router::generate_arp_reply(Port &port, PacketInMetadata &md,
 
       ethframe.src_addr(arp_reply.dst_addr());
       ethframe.dst_addr(arp_reply.src_addr());
+
+      if (getShadow()) {
+        auto port_out_linux = get_port(port.index() + 1);
+        if (port_out_linux->get_status() == polycube::service::PortStatus::UP)
+          port_out_linux->send_packet_out(ethframe);
+      }
 
       port.send_packet_out(ethframe);
     }

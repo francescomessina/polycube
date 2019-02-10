@@ -199,10 +199,6 @@ private:
   // The following methods have been added by hand
 
   //Methods to manage packets coming from the fast path
-  void handle_pkt_for_linux(Port &port, PacketInMetadata &md,
-                         const std::vector<uint8_t> &packet);
-  void egress_traffic_for_linux(Port &port, PacketInMetadata &md,
-                         const std::vector<uint8_t> &packet);
   void handle_router_pkt(Port &port, PacketInMetadata &md,
                          const std::vector<uint8_t> &packet);
   EthernetII make_echo_reply(EthernetII &origin, const IPv4Address &src_ip,
@@ -211,7 +207,7 @@ private:
                    const std::vector<uint8_t> &packet);
   void generate_arp_request(Port &port, PacketInMetadata &md,
                    const std::vector<uint8_t> &packet);
-  void generate_arp_reply(Port &port, PacketInMetadata &md,
+  void notify_arp_reply(Port &port, PacketInMetadata &md,
                  const std::vector<uint8_t> &packet);
 
   //Methods to manage the routing table
