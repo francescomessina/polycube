@@ -156,7 +156,7 @@ std::shared_ptr<PortIface> Cube::add_port(const std::string &name) {
   }
 
 /********************************************************************************************/
-  if (shadow_ && (name.find("_direct_to_linux") == std::string::npos)) {
+  if (shadow_) {
     bool find = false;
     auto ifaces = polycube::polycubed::Netlink::getInstance().get_available_ifaces();
     for (auto &it : ifaces) {

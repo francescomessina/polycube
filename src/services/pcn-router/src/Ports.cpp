@@ -28,27 +28,7 @@ Ports::Ports(polycube::service::Cube<Ports> &parent,
   : Port(port), parent_(static_cast<Router&>(parent)) {
 
 /*****************************************************************************/
-  bool is_linux_port = false;
-  if (getName().find("_direct_to_linux") != std::string::npos) {
-    is_linux_port = true;
-
-    auto router_port = parent.get_hash_table<uint16_t, r_port>("router_port");
-    r_port value {
-      .ip = 0,
-      .netmask = 0,
-      .secondary_ip = {},
-      .secondary_netmask = {},
-      .mac = 0,
-    };
-    uint16_t index = this->index();
-
-    router_port.set(index, value);
-    logger()->info("added new port direct to linux: {0} (index: {1})",getName(),index);
-
-    return;
-  }
-
-  if (parent_.getShadow() && !is_linux_port) {
+  if (parent_.getShadow()) {
     auto ifaces = polycube::polycubed::Netlink::getInstance().get_available_ifaces();
     bool find_interface = false;
     for (auto &it : ifaces) {
@@ -137,10 +117,7 @@ Ports::Ports(polycube::service::Cube<Ports> &parent,
       throw std::runtime_error("The interface is no longer present in linux, there was a problem");
     }
 
-  }
-
-  // if shadow is false
-  if (!parent_.getShadow()) {
+  } else { // if shadow is false
     if(conf.macIsSet())
       mac_ = conf.getMac();
     else
@@ -276,19 +253,7 @@ void Ports::create(Router &parent, const std::string &name, const PortsJsonObjec
   //This method creates the actual Ports object given thee key param.
   //Please remember to call here the create static method for all sub-objects of Ports.
 
-  if (name.find("_direct_to_linux") != std::string::npos) {
-    throw std::runtime_error("It is not possible to insert in the name of an interface '_direct_to_linux'"); 
-  }
-
   parent.add_port<PortsJsonObject>(name, conf);
-
-  if (parent.getShadow()) {
-    std::string name_port_direct_to_linux = name + "_direct_to_linux";
-    PortsJsonObject conf_port_linux;
-    conf_port_linux.setName(name_port_direct_to_linux);
-
-    parent.add_port<PortsJsonObject>(name_port_direct_to_linux, conf_port_linux);
-  }
 }
 /*********************************************************************************/
 
@@ -330,14 +295,6 @@ void Ports::removeEntry(Router &parent, const std::string &name){
   parent.remove_port(name);
 
   parent.logger()->info("port {0} was removed", name);
-
-/******************************************************************************/
-  //remove also the port direct to linux
-  if (parent.getShadow()) {
-    router_port.remove(index + 1);
-    parent.remove_port(name + "_direct_to_linux");
-  }
-/******************************************************************************/
 }
 
 std::vector<std::shared_ptr<Ports>> Ports::get(Router &parent){
