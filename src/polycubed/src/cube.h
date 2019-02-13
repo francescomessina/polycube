@@ -131,10 +131,12 @@ class Cube : public CubeIface {
   static const std::string MASTER_CODE;
   static const std::string CUBE_H;
 
+  bool is_a_tap(const std::string &name);
+
 protected:
 
   bool shadow_;
-  std::set<std::unique_ptr<viface::VIface>> ifaces_;  // keeps track of Linux interfaces
+  std::map<std::string, std::unique_ptr<viface::VIface>> ifaces_map;  // keeps track of Linux interfaces
 
   CubeType type_;
   void init(const std::vector<std::string> &ingress_code,

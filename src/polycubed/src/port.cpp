@@ -135,6 +135,15 @@ void Port::send_packet_out(const std::vector<uint8_t> &packet, Direction directi
       port = 0;
     }
   }
+/*********************************************************/
+  if (parent_.get_shadow()) {
+    Cube *cube = static_cast<Cube *>(&parent_);
+    //check if the interface is a tail call
+    if (cube->is_a_tap(name_))
+      polycube::polycubed::utils::send_packet_linux(name_, packet);
+  }
+/*********************************************************/
+
   c.send_packet_to_cube(module, port, packet);
 }
 

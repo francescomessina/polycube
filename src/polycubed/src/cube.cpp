@@ -177,7 +177,7 @@ std::shared_ptr<PortIface> Cube::add_port(const std::string &name) {
       iface_->setMTU(9000);
       iface_->up();
 
-      ifaces_.insert(std::move(iface_));
+      ifaces_map.insert(std::pair<std::string, std::unique_ptr<viface::VIface>>(iface_->getName(), std::move(iface_)));
       logger->info("the interface {0} was created on Linux", name);
     }
   }
@@ -187,6 +187,14 @@ std::shared_ptr<PortIface> Cube::add_port(const std::string &name) {
   ports_by_index_.emplace(id, port);
   return std::move(port);
 }
+
+/********************************************************************************************/
+bool Cube::is_a_tap(const std::string &name) {
+  if (ifaces_map.find(name) == ifaces_map.end())
+    return false;
+  return true;
+}
+/********************************************************************************************/
 
 void Cube::remove_port(const std::string &name) {
   if (ports_by_name_.count(name) == 0) {

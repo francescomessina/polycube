@@ -43,6 +43,22 @@ bool check_kernel_version(const std::string &version) {
   return KERNEL_VERSION(major, minor, patch) >= KERNEL_VERSION(major_r, minor_r, patch_r);
 }
 
+void send_packet_linux(const std::string &name_iface, const std::vector<uint8_t> &packet) {
+  try {
+    int ifindex = if_nametoindex(name_iface.c_str());
+    Tins::NetworkInterface iface = Tins::NetworkInterface::from_index(ifindex);
+
+    Tins::EthernetII p(&packet[0], packet.size());
+
+    Tins::PacketSender sender;
+    sender.send(p, iface);
+
+  } catch(const std::exception &e) {
+    // TODO: ignore the problem, what else can we do?
+    throw std::runtime_error("error send packet linux: " + std::string(std::strerror(errno)));
+  }
+}
+
 }  // namespace utils
 }  // namespace polycubed
 }  // namespace polycube

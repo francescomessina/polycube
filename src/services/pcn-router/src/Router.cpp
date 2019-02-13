@@ -148,9 +148,7 @@ RouterJsonObject Router::toJsonObject(){
   conf.setShadow(getShadow());
 
   for(auto &i : getPortsList()){
-    if (i->name().find("_direct_to_linux") == std::string::npos) {
-      conf.addPorts(i->toJsonObject());
-    }
+    conf.addPorts(i->toJsonObject());
   }
 
   //Remove comments when you implement all sub-methods
@@ -617,13 +615,6 @@ void Router::handle_router_pkt(Port &port, PacketInMetadata &md,
       EthernetII echoreply_packet =
           make_echo_reply(p, src_ip, dst_ip, icmp_payload);
 
-      if (getShadow()) {
-        auto port_out_linux = get_port(port.index() + 1);
-        if (port_out_linux->get_status() == polycube::service::PortStatus::UP) {
-          port_out_linux->send_packet_out(echoreply_packet);
-        }
-      }
-
       port.send_packet_out(echoreply_packet);
     }
   }
@@ -694,12 +685,6 @@ void Router::generate_icmp_ttlexceed(Port &port, PacketInMetadata &md,
   // add ICMP message in the response packet
   icmp_packet /= icmp;
 
-  if (getShadow()) {
-    auto port_out_linux = get_port(port.index() + 1);
-    if (port_out_linux->get_status() == polycube::service::PortStatus::UP)
-      port_out_linux->send_packet_out(icmp_packet);
-  }
-
   port.send_packet_out(icmp_packet);
 }
 
@@ -750,12 +735,6 @@ void Router::generate_arp_request(Port &port, PacketInMetadata &md,
       target_ip_addr, src_ip_addr,
       src_mac_addr); // check if parameters format are correct
 
-  if (getShadow()) {
-    auto port_out_linux = get_port(index + 1);
-    if (port_out_linux->get_status() == polycube::service::PortStatus::UP)
-      port_out_linux->send_packet_out(arp_request_packet);
-  }
-
   port_out->send_packet_out(arp_request_packet);
 }
 
@@ -795,12 +774,6 @@ void Router::notify_arp_reply(Port &port, PacketInMetadata &md,
 
       ethframe.src_addr(arp_reply.dst_addr());
       ethframe.dst_addr(arp_reply.src_addr());
-
-      if (getShadow()) {
-        auto port_out_linux = get_port(port.index() + 1);
-        if (port_out_linux->get_status() == polycube::service::PortStatus::UP)
-          port_out_linux->send_packet_out(ethframe);
-      }
 
       port.send_packet_out(ethframe);
     }

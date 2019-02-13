@@ -15,12 +15,18 @@
  */
 
 #include <string>
+#include <vector>
+
+#include <tins/ethernetII.h>
+#include <tins/tins.h>
+#include <net/if.h>
 
 namespace polycube {
 namespace polycubed {
 namespace utils {
 
 bool check_kernel_version(const std::string &version);
+void send_packet_linux(const std::string &name_iface, const std::vector<uint8_t> &packet);
 
 }  // namespace utils
 }  // namespace polycubed

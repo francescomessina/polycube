@@ -21,6 +21,8 @@
 #include "patchpanel.h"
 #include "port.h"
 
+#include "utils.h"
+
 #include <iostream>
 
 namespace polycube {
@@ -59,30 +61,13 @@ void CubeTC::call_back_proxy(void *cb_cookie, void *data, int data_size) {
   if (cube == nullptr)
     throw std::runtime_error("Bad cube");
 
-  try {
-    std::vector<uint8_t> packet(data_, data_ + md->packet_len);
+  std::vector<uint8_t> packet(data_, data_ + md->packet_len);
 
-    // se port_id dispari arriva da linux, se pari arriva da polycube
-    // per il momento i dispari li butto, non li considero
-    if (md->port_id % 2) {
-      spdlog::get("polycubed")->debug("port_id = {0} - pacchetto arriva da linux", md->port_id);
-      return;
-    }
+  auto in_port = cube->ports_by_index_.at(md->port_id);
 
-    auto in_port = cube->ports_by_index_.at(md->port_id);
-    std::string name_port_linux = in_port->name() + "_direct_to_linux";
-
-    PortIface *port_linux = cube->get_port(name_port_linux).get();
-    Port *port_linux_ = (Port*)port_linux;
-
-    if (port_linux_->get_status() == polycube::service::PortStatus::UP) {
-      port_linux_->send_packet_out(packet);
-    }
-
-  } catch(const std::exception &e) {
-    // TODO: ignore the problem, what else can we do?
-    spdlog::get("polycubed")->warn("Error processing packet in event: {}", e.what());
-  }
+  //check if the interface is a tail call
+  if (cube->is_a_tap(in_port->name())) 
+    polycube::polycubed::utils::send_packet_linux(in_port->name(), packet);
 }
 
 void CubeTC::start() {
@@ -271,6 +256,7 @@ int handle_rx_wrapper(struct CTXTYPE *skb) {
     case RX_CONTROLLER:
       return to_controller(skb, md.reason);
     case RX_OK:
+      //to_controller_shadow(skb, md);
       return TC_ACT_OK;
   }
   return TC_ACT_SHOT;
