@@ -41,29 +41,10 @@ Ports::Ports(polycube::service::Cube<Ports> &parent,
           netmask_ = conf.getNetmask();
           flag_update_linux_iface = true;
         } else {
-          bool flag_ip = false;
-          // Find ip address
-          for (auto addr : it.second.get_addresses()) {
-            std::stringstream ss(addr);
-            std::string item;
-            std::vector<std::string> splittedStrings;
-            while (std::getline(ss, item, '/')) {
-              splittedStrings.push_back(item);
-            }
+          ip_ = get_ip_interface(name_iface);
+          netmask_ = get_netmask_interface(name_iface);
 
-            unsigned char buf[sizeof(struct in_addr)];
-            int ip = inet_pton(AF_INET, splittedStrings[0].c_str(), buf);
-            if (ip == 1) {
-              flag_ip = true;
-              // set ip
-              ip_ = splittedStrings[0];
-              // set netmask
-              netmask_ = (get_netmask_from_CIDR(std::stoi(splittedStrings[1])));
-              // break when find first ipv4 address
-              break;
-            }
-          }
-          if (!flag_ip)
+          if (ip_ == "0.0.0.0" || netmask_ == "0.0.0.0")
             throw std::runtime_error("The interface is already present in Linux but has no an IP address, IP and netmask are mandatory");
         }
 
@@ -71,37 +52,7 @@ Ports::Ports(polycube::service::Cube<Ports> &parent,
           mac_ = conf.getMac();
           flag_update_linux_iface = true;
         } else {
-          // Find mac address
-          bool flag_mac = false;
-          unsigned char mac[IFHWADDRLEN];
-          int i;
-
-          struct ifreq ifr;
-          int fd;
-          int rv;  // return value
-
-          // determines the MAC address
-          strcpy(ifr.ifr_name, name_iface.c_str());
-          fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_IP);
-          if (fd < 0) {
-            logger()->error("error opening socket: {0}", std::strerror(errno));
-          } else {
-            rv = ioctl(fd, SIOCGIFHWADDR, &ifr);
-            if (rv >= 0) {
-              memcpy(mac, ifr.ifr_hwaddr.sa_data, IFHWADDRLEN);
-              flag_mac = true;
-            }
-          }
-          close(fd);
-
-          if (flag_mac) {
-            uint64_t mac_uint;
-            memcpy(&mac_uint, mac, sizeof mac_uint);
-            mac_ = polycube::service::utils::be_uint_to_mac_string(mac_uint);
-          } else {
-            mac_ = polycube::service::utils::get_random_mac();
-            flag_update_linux_iface = true;
-          }
+          mac_ = get_mac_interface(name_iface);
         }
       }
       if (flag_update_linux_iface) {

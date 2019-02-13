@@ -853,8 +853,8 @@ void Router::netlink_notification_link_added(int ifindex, const std::string &ifa
   if (port != NULL) {
     logger()->info("netlink notification, link {0} changed", iface);
 
-    std::string new_ip = "-";
-    std::string new_netmask = "-";
+    std::string new_ip = "0.0.0.0";
+    std::string new_netmask = "0.0.0.0";
     std::string new_mac = "-";
 
     std::string old_ip = port->getIp();
@@ -865,73 +865,30 @@ void Router::netlink_notification_link_added(int ifindex, const std::string &ifa
     for (auto &it : ifaces) {
       auto name = it.second.get_name();
       if (name == iface) {
-        // Find new ipv4 address
-        for (auto addr : it.second.get_addresses()) {
-          std::stringstream ss(addr);
-          std::string item;
-          std::vector<std::string> splittedStrings;
-          while (std::getline(ss, item, '/')) {
-            splittedStrings.push_back(item);
-          }
 
-          unsigned char buf[sizeof(struct in_addr)];
-          int flag = inet_pton(AF_INET, splittedStrings[0].c_str(), buf);
-          if (flag == 1) {
-            new_ip = splittedStrings[0];
-            new_netmask = get_netmask_from_CIDR(std::stoi(splittedStrings[1]));
-            // break when find first ipv4 address
-            break;
-          }
-        }
+        new_ip = get_ip_interface(name);
+        new_netmask = get_netmask_interface(name);
+        new_mac = get_mac_interface(name);
 
-        // Find new MAC address
-        bool flag_mac = false;
-        unsigned char mac[IFHWADDRLEN];
-        int i;
-
-        struct ifreq ifr;
-        int fd;
-        int rv;  // return value
-
-        // determines the MAC address
-        strcpy(ifr.ifr_name, iface.c_str());
-        fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_IP);
-        if (fd < 0) {
-          logger()->error("error opening socket: {0}", std::strerror(errno));
-        } else {
-          rv = ioctl(fd, SIOCGIFHWADDR, &ifr);
-          if (rv >= 0) {
-            memcpy(mac, ifr.ifr_hwaddr.sa_data, IFHWADDRLEN);
-            flag_mac = true;
-          }
-        }
-        close(fd);
-
-        if (flag_mac) {
-          uint64_t mac_uint;
-          memcpy(&mac_uint, mac, sizeof mac_uint);
-          new_mac = polycube::service::utils::be_uint_to_mac_string(mac_uint);
-        }
         break;  // break because found interface
       }
     }
 
-    if (new_ip == "-" && new_netmask == "-") {
+    if (new_ip == "0.0.0.0" && new_netmask == "0.0.0.0") {
       logger()->info("the port {0} is down", iface);
       port->set_peer("");
       return;
     }
 
-
-    if ((old_ip != new_ip && new_ip != "-") || (old_netmask != new_netmask && new_netmask != "-")) {
+    if ((old_ip != new_ip && new_ip != "0.0.0.0") || (old_netmask != new_netmask && new_netmask != "0.0.0.0")) {
       remove_local_route(old_ip, old_netmask, port->name());
       add_local_route(new_ip, new_netmask, port->name(), port->index());
     }
-    if (old_ip != new_ip && new_ip != "-") {
+    if (old_ip != new_ip && new_ip != "0.0.0.0") {
       logger()->info("changed IP address on the port {0}", iface);
       port->setIp_polycube(new_ip);
     }
-    if (old_netmask != new_netmask && new_netmask != "-") {
+    if (old_netmask != new_netmask && new_netmask != "0.0.0.0") {
       logger()->info("changed netmask on the port {0}", iface);
       port->setNetmask_polycube(new_netmask);
     }

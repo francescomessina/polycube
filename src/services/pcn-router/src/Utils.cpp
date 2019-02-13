@@ -127,3 +127,24 @@ std::string get_netmask_from_CIDR(const int cidr) {
 
   return inet_ntoa(addr);
 }
+
+std::string get_ip_interface(const std::string &name_iface) {
+  int ifindex = if_nametoindex(name_iface.c_str());
+  Tins::NetworkInterface iface = Tins::NetworkInterface::from_index(ifindex);
+
+  return iface.ipv4_address().to_string();
+}
+
+std::string get_netmask_interface(const std::string &name_iface) {
+  int ifindex = if_nametoindex(name_iface.c_str());
+  Tins::NetworkInterface iface = Tins::NetworkInterface::from_index(ifindex);
+
+  return iface.ipv4_mask().to_string();
+}
+
+std::string get_mac_interface(const std::string &name_iface) {
+  int ifindex = if_nametoindex(name_iface.c_str());
+  Tins::NetworkInterface iface = Tins::NetworkInterface::from_index(ifindex);
+
+  return iface.hw_address().to_string();
+}
