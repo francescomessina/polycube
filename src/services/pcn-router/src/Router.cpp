@@ -613,6 +613,28 @@ void Router::handle_router_pkt(Port &port, PacketInMetadata &md,
       EthernetII echoreply_packet =
           make_echo_reply(p, src_ip, dst_ip, icmp_payload);
 
+      // forward the icmp packets to Linux
+      if (getShadow()) {
+        std:string name_port = "";
+        auto ports = get_ports();
+        for (auto it : ports) {
+          if (it->getIp() == dst_ip.to_string()) {
+            name_port = it->name();
+            break;
+          }
+        }
+        if (name_port != "" && name_port != port.name()) {
+          int ifindex = if_nametoindex(name_port.c_str());
+          Tins::NetworkInterface iface = Tins::NetworkInterface::from_index(ifindex);
+          Tins::PacketSender sender;
+          // echo request
+          Tins::EthernetII request(&packet[0], packet.size());
+          sender.send(request, iface);
+          // echo reply
+          sender.send(echoreply_packet, iface);
+        }
+      }
+
       port.send_packet_out(echoreply_packet);
     }
   }
