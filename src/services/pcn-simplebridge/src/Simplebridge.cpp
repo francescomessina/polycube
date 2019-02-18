@@ -27,12 +27,15 @@
 using namespace Tins;
 
 Simplebridge::Simplebridge(const std::string name, const SimplebridgeJsonObject &conf, CubeType type)
-                             : Cube(name, {generate_code()}, {}, type, conf.getPolycubeLoglevel()) {
+                             : Cube(name, {generate_code()}, {}, type, conf.getPolycubeLoglevel(), conf.getShadow()) {
   logger()->set_pattern("[%Y-%m-%d %H:%M:%S.%e] [Simplebridge] [%n] [%l] %v");
   logger()->info("Creating Simplebridge instance");
 
   addFdb(conf.getFdb());
   addPortsList(conf.getPorts());
+  setShadow(conf.getShadow());
+
+  logger()->info("shadow = {0}", conf.getShadow());
 }
 
 Simplebridge::~Simplebridge() {
@@ -60,6 +63,9 @@ void Simplebridge::update(const SimplebridgeJsonObject &conf) {
       m->update(i);
     }
   }
+  if (conf.shadowIsSet()) {
+    setShadow(conf.getShadow());
+  }
 }
 
 SimplebridgeJsonObject Simplebridge::toJsonObject(){
@@ -69,6 +75,7 @@ SimplebridgeJsonObject Simplebridge::toJsonObject(){
   conf.setUuid(getUuid());
   conf.setLoglevel(getLoglevel());
   conf.setType(getType());
+  conf.setShadow(getShadow());
 
   for(auto &i : getPortsList()){
     conf.addPorts(i->toJsonObject());
@@ -106,6 +113,16 @@ void Simplebridge::packet_in(Ports &port, polycube::service::PacketInMetadata &m
   }
 }
 
+bool Simplebridge::getShadow(){
+  // This method retrieves the shadow value.
+  return shadow_;
+}
+
+void Simplebridge::setShadow(const bool &value){
+  // This method set the shadow value.
+  shadow_ = value;
+}
+
 void Simplebridge::flood_packet(Port &port, PacketInMetadata &md,
                                 const std::vector<uint8_t> &packet) {
   EthernetII p(&packet[0], packet.size());
@@ -131,14 +148,3 @@ void Simplebridge::reloadCodeWithAgingtime(uint32_t aging_time) {
 
   logger()->trace("New bridge code reloaded");
 }
-
-
-
-
-
-
-
-
-
-
-

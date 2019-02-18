@@ -26,6 +26,9 @@
 
 #include <spdlog/spdlog.h>
 
+#include <tins/ethernetII.h>
+#include <tins/tins.h>
+#include <net/if.h>
 
 class Simplebridge;
 
@@ -79,4 +82,3 @@ private:
 
   std::string mac_;
 };
-

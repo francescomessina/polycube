@@ -25,19 +25,39 @@ Ports::Ports(polycube::service::Cube<Ports> &parent,
              std::shared_ptr<polycube::service::PortIface> port,
              const PortsJsonObject &conf)
   : Port(port), parent_(static_cast<Simplebridge&>(parent)) {
-  logger()->info("Creating Ports instance");
+
+  if (parent_.getShadow()) {
+    if (conf.macIsSet()){
+      mac_ = conf.getMac();
+
+      // change mac linux
+      std::string cmd_string = "ifconfig " + conf.getName() + " down";
+      system(cmd_string.c_str());
+
+      cmd_string = "ifconfig " + conf.getName() + " hw ether " + mac_;
+      system(cmd_string.c_str());
+
+      cmd_string = "ifconfig " + conf.getName() + " up";
+      system(cmd_string.c_str());
+
+    } else {
+      int ifindex = if_nametoindex(conf.getName().c_str());
+      Tins::NetworkInterface iface = Tins::NetworkInterface::from_index(ifindex);
+      mac_ = iface.hw_address().to_string();
+    }
+  } else {
+    //This MAC address is not used in the datapath. We set only the variable here
+    if(conf.macIsSet()) {
+      mac_ = conf.getMac();
+    } else {
+      mac_ = utils::get_random_mac();
+      logger()->info("[Ports] New port add with random mac: {0}", mac_);
+    }
+  }
+
   if(conf.peerIsSet()) {
     setPeer(conf.getPeer());
   }
-
-  //This MAC address is not used in the datapath. We set only the variable here
-  if(conf.macIsSet()) {
-    mac_ = conf.getMac();
-  } else {
-    mac_ = utils::get_random_mac();
-    logger()->info("[Ports] New port add with random mac: {0}", mac_);
-  }
-
 }
 
 Ports::~Ports() {
@@ -127,5 +147,3 @@ std::string Ports::getMac(){
 std::shared_ptr<spdlog::logger> Ports::logger() {
   return parent_.logger();
 }
-
-

@@ -71,6 +71,12 @@ public:
   void setLoglevel(const SimplebridgeLoglevelEnum &value) override;
 
   /// <summary>
+  /// Defines if the service has the interfaces visible in Linux
+  /// </summary>
+  bool getShadow() override;
+  void setShadow(const bool &value) override;
+
+  /// <summary>
   /// Type of the Cube (TC, XDP_SKB, XDP_DRV)
   /// </summary>
   CubeType getType() override;
@@ -93,10 +99,11 @@ public:
   void reloadCodeWithAgingtime(uint32_t value);
 
 private:
+  bool shadow_;
+
   std::unordered_map<std::string, Ports> ports_;
   std::shared_ptr<Fdb> fdb_ = nullptr;
 
   void flood_packet(Port &port, PacketInMetadata &md, const std::vector<uint8_t> &packet);
   std::mutex ports_mutex_;
 };
-
