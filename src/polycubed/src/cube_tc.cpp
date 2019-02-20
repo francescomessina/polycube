@@ -48,6 +48,13 @@ CubeTC::CubeTC(const std::string &name,
       throw BPFError("cannot open shadow_slowpath perf buffer");
     }
     start();
+
+    update_sniffer_value(false);
+
+    netlink_notification_index_promisc_mode = netlink_instance.registerObserver(
+      polycube::polycubed::Netlink::Event::PROMISC_MODE,
+      std::bind(&CubeTC::netlink_notification_promisc_mode, this,
+                std::placeholders::_1, std::placeholders::_2));
   }
 }
 
@@ -66,7 +73,7 @@ void CubeTC::call_back_proxy(void *cb_cookie, void *data, int data_size) {
   auto in_port = cube->ports_by_index_.at(md->port_id);
 
   //check if the interface is a tail call
-  if (cube->is_a_tap(in_port->name())) 
+  if (cube->is_a_tap(in_port->name()))
     polycube::polycubed::utils::send_packet_linux(in_port->name(), packet);
 }
 
@@ -95,10 +102,29 @@ void CubeTC::stop() {
   }
 }
 
+void CubeTC::netlink_notification_promisc_mode(int ifindex, const std::string &iface) {
+  std::lock_guard<std::mutex> guard(cube_mutex);
+
+  if (is_a_tap(iface)) {
+    if (set_sniffer_flag(iface)) {
+      logger->info("netlink notification, {0} promisc mode on", iface);
+    } else {
+      logger->info("netlink notification, {0} promisc mode off", iface);
+    }
+
+    update_sniffer_mode();
+  }
+}
+
 CubeTC::~CubeTC() {
   // it cannot be done in Cube::~Cube() because calls a virtual method
-  if (shadow_)
+  if (shadow_) {
     stop();
+    netlink_instance.unregisterObserver(
+          polycube::polycubed::Netlink::Event::PROMISC_MODE,
+          netlink_notification_index_promisc_mode);
+  }
+
   Cube::uninit();
 }
 
@@ -197,11 +223,19 @@ BPF_PERF_OUTPUT(shadow_slowpath);
 
 static __always_inline
 int to_controller_shadow(struct CTXTYPE *skb, struct pkt_metadata md) {
-  int r = shadow_slowpath.perf_submit_skb(skb, md.packet_len, &md, sizeof(md));
-  if (r != 0) {
-    bpf_trace_printk("Shadow controller error: %d\n", r);
+  unsigned int zero = 0;
+  bool *flag = sniffer.lookup(&zero);
+  if (!flag) {
+    return TC_ACT_SHOT;
   }
-  return r;
+  if (*flag) {
+    int r = shadow_slowpath.perf_submit_skb(skb, md.packet_len, &md, sizeof(md));
+    if (r != 0) {
+      bpf_trace_printk("Shadow controller error: %d\n", r);
+    }
+    return r;
+  }
+  return TC_ACT_SHOT;
 }
 
 static __always_inline
@@ -244,6 +278,7 @@ int handle_rx_wrapper(struct CTXTYPE *skb) {
 
   if (SHADOW)
     to_controller_shadow(skb, md);
+
 
   int rc = handle_rx(skb, &md);
 

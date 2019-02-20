@@ -103,9 +103,16 @@ class Netlink::NetlinkNotification {
     if (nlh->nlmsg_type == RTM_NEWLINK) {
       struct ifinfomsg *iface = (struct ifinfomsg *)NLMSG_DATA(nlh);
       struct rtattr *hdr = IFLA_RTA(iface);
-      if (hdr->rta_type == IFLA_IFNAME) {
-        parent->notify_link_added(iface->ifi_index,
-                                    std::string((char *)RTA_DATA(hdr)));
+
+      // 256 is flag for Promisc mode
+      if (hdr->rta_type == IFLA_IFNAME && iface->ifi_change == 256) {
+        parent->notify_promisc_mode(iface->ifi_index,
+                                      std::string((char *)RTA_DATA(hdr)));
+      } else {
+        if (hdr->rta_type == IFLA_IFNAME) {
+          parent->notify_link_added(iface->ifi_index,
+                                      std::string((char *)RTA_DATA(hdr)));
+        }
       }
     }
 
@@ -573,6 +580,11 @@ void Netlink::notify_link_deleted(int ifindex, const std::string &iface) {
       "received notification link deleted with ifindex {0} and name {1}",
       ifindex, iface);
   notify(Netlink::Event::LINK_DELETED, ifindex, iface);
+}
+
+void Netlink::notify_promisc_mode(int ifindex, const std::string &iface) {
+  logger->debug("received netlink notification, promisc mode on ifindex {0}", ifindex);
+  notify(Netlink::Event::PROMISC_MODE, ifindex, iface);
 }
 
 void Netlink::notify_all(int ifindex, const std::string &iface) {

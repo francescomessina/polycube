@@ -64,6 +64,11 @@ class CubeTC : public Cube {
   void stop();
   bool stop_;
   std::unique_ptr<std::thread> pkt_in_thread_;
+
+  std::mutex cube_mutex;
+  polycube::polycubed::Netlink netlink_instance;
+  int netlink_notification_index_promisc_mode;
+  void netlink_notification_promisc_mode(int ifindex, const std::string &iface);
 /*************************************************************************/
 
   static const std::string WRAPPERC;

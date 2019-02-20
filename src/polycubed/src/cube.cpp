@@ -65,6 +65,10 @@ Cube::Cube(const std::string &name,
   forward_chain_ = std::unique_ptr<ebpf::BPFArrayTable<uint32_t>>(
       new ebpf::BPFArrayTable<uint32_t>(forward_));
 
+  auto sniffer_ = master_program_->get_array_table<bool>("sniffer");
+  sniffer = std::unique_ptr<ebpf::BPFArrayTable<bool>>(
+      new ebpf::BPFArrayTable<bool>(sniffer_));
+
   // add free ports
   for (uint16_t i = 0; i < _POLYCUBE_MAX_PORTS; i++)
     free_ports_.insert(i);
@@ -177,6 +181,7 @@ std::shared_ptr<PortIface> Cube::add_port(const std::string &name) {
       iface_->setMTU(9000);
       iface_->up();
 
+      sniffer_map.insert(std::pair<std::string, bool>(iface_->getName(), false));
       ifaces_map.insert(std::pair<std::string, std::unique_ptr<viface::VIface>>(iface_->getName(), std::move(iface_)));
       logger->info("the interface {0} was created on Linux", name);
     }
@@ -193,6 +198,27 @@ bool Cube::is_a_tap(const std::string &name) {
   if (ifaces_map.find(name) == ifaces_map.end())
     return false;
   return true;
+}
+
+bool Cube::set_sniffer_flag(const std::string &name) {
+  std::lock_guard<std::mutex> guard(sniffer_mutex);
+
+  if (sniffer_map.at(name))
+    sniffer_map.at(name) = false;
+  else
+    sniffer_map.at(name) = true;
+  return sniffer_map.at(name);
+}
+
+void Cube::update_sniffer_mode() {
+  std::lock_guard<std::mutex> guard(sniffer_mutex);
+  for (auto it = sniffer_map.begin(); it != sniffer_map.end(); it++) {
+    if (it->second) {
+      update_sniffer_value(true);
+      return;
+    }
+  }
+  update_sniffer_value(false);
 }
 /********************************************************************************************/
 
@@ -232,6 +258,12 @@ void Cube::update_forwarding_table(int index, int value) {
   std::lock_guard<std::mutex> cube_guard(cube_mutex_);
   if (forward_chain_) // is the forward chain still active?
     forward_chain_->update_value(index, value);
+}
+
+void Cube::update_sniffer_value(bool value) {
+  std::lock_guard<std::mutex> cube_guard(cube_mutex_);
+  if (sniffer)
+    sniffer->update_value(0, value);
 }
 
 const std::string Cube::get_name() const {
@@ -524,6 +556,9 @@ const std::string Cube::MASTER_CODE = R"(
 // table used to save ports to endpoint relation
 BPF_TABLE_SHARED("array", int, u32, forward_chain_, _POLYCUBE_MAX_PORTS);
 
+// table of single element used to save the sniffer attribute
+BPF_TABLE_SHARED("array", int, bool, sniffer, 1);
+
 // tables to save file descriptor of ingress and egress programs
 BPF_TABLE_SHARED("prog", int, int, ingress_programs, _POLYCUBE_MAX_BPF_PROGRAMS);
 BPF_TABLE_SHARED("prog", int, int, egress_programs, _POLYCUBE_MAX_BPF_PROGRAMS);
@@ -541,6 +576,7 @@ const std::string Cube::CUBE_H = R"(
 
 // maps definitions, same as in master program but "extern"
 BPF_TABLE("extern", int, u32, forward_chain_, _POLYCUBE_MAX_PORTS);
+BPF_TABLE("extern", int, bool, sniffer, 1);
 BPF_TABLE("extern", int, int, ingress_programs, _POLYCUBE_MAX_BPF_PROGRAMS);
 BPF_TABLE("extern", int, int, egress_programs, _POLYCUBE_MAX_BPF_PROGRAMS);
 

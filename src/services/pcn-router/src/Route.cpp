@@ -54,10 +54,15 @@ Route::Route(Router &parent, const RouteJsonObject &conf): parent_(parent) {
   parent.add_active_nexthop_in_ebpf_map(network_, netmask_, nexthop_,
                             conf.getPathcost(), port_id);
 
+  /*
   if (parent.getShadow()) {
-    std::string cmd_string = "route add -net " + network_ + " netmask " + netmask_ + " gw " + nexthop_ + " dev " + interface_;
+    // TODO: it makes no sense without namespaces
+    std::string cmd_string = "ip route add " + network_ + "/" + std::to_string(get_netmask_length(netmask_)) + " via " + nexthop_ + " dev " + interface_;
     system(cmd_string.c_str());
+    parent.logger()->info("added route to Linux: {0}", cmd_string);
   }
+  */
+
 }
 
 Route::Route(Router &parent, std::string network, const std::string &netmask,

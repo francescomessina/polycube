@@ -95,6 +95,7 @@ class Cube : public CubeIface {
   CubeType get_type() const;
 
   void update_forwarding_table(int index, int value);
+  void update_sniffer_value(bool value);
 
   uint32_t get_id() const;
 
@@ -132,11 +133,15 @@ class Cube : public CubeIface {
   static const std::string CUBE_H;
 
   bool is_a_tap(const std::string &name);
+  bool set_sniffer_flag(const std::string &name);
+  void update_sniffer_mode();
 
 protected:
 
+  std::mutex sniffer_mutex;
   bool shadow_;
   std::map<std::string, std::unique_ptr<viface::VIface>> ifaces_map;  // keeps track of Linux interfaces
+  std::map<std::string, bool> sniffer_map;
 
   CubeType type_;
   void init(const std::vector<std::string> &ingress_code,
@@ -168,6 +173,7 @@ protected:
   std::array<std::string, _POLYCUBE_MAX_BPF_PROGRAMS> egress_code_;
 
   std::unique_ptr<ebpf::BPFArrayTable<uint32_t>> forward_chain_;
+  std::unique_ptr<ebpf::BPFArrayTable<bool>> sniffer;
   std::unique_ptr<ebpf::BPFProgTable> ingress_programs_table_;
   std::unique_ptr<ebpf::BPFProgTable> egress_programs_table_;
 

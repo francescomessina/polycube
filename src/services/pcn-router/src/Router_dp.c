@@ -69,7 +69,7 @@ struct r_port {
 
 /******************************************************************/
 // BPF table of single element that saves the shadow attribute
-BPF_TABLE_SHARED("hash", int, bool, shadow_, 1);
+BPF_TABLE("hash", int, bool, shadow_, 1);
 /****************************************************************/
 
 BPF_F_TABLE("lpm_trie", struct rt_k, struct rt_v, routing_table,
