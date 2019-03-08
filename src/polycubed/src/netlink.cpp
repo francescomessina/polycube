@@ -38,12 +38,62 @@ class Netlink::NetlinkNotification {
     nl_socket_add_memberships(sk, RTNLGRP_IPV4_ROUTE, 0);
     nl_socket_add_memberships(sk, RTNLGRP_IPV4_IFADDR, 0);
 
+    /* Set socket for all namespace */
+    /*
+    // nl_sock_listen_all_nsid(sk, true);
+    int sock = nl_socket_get_fd(sk);
+    int val = 1;
+    if(setsockopt(sk->s_fd, SOL_NETLINK, NETLINK_LISTEN_ALL_NSID, &val, sizeof(val)) < 0)
+    {
+    parent_->logger->error("setsockopt failed");
+    exit(2);
+    }
+    */
+
     parent_->logger->debug("started NetlinkNotification");
 
     thread_ = std::thread(&NetlinkNotification::execute_wait, this);
     // TODO: Detaching the thread is not a problem here since we are killing the
     // thread when the program terminates
     // thread_.detach();
+
+
+/*
+    struct sockaddr_nl addr;
+    int option =1;
+
+    bzero (&addr, sizeof(addr));
+
+    if ((sock = socket(AF_NETLINK, SOCK_RAW, NETLINK_ROUTE)) < 0)
+        printf("socket");
+
+
+    addr.nl_family = AF_NETLINK;
+    addr.nl_groups = (RTM_NEWNEIGH | RTMGRP_IPV4_ROUTE | RTNLGRP_LINK) ;
+
+    if (bind(sock,(struct sockaddr *)&addr,sizeof(addr)) < 0)
+        printf("bind");
+
+
+    if(setsockopt(sock,SOL_NETLINK,NETLINK_LISTEN_ALL_NSID,(char*)&option,sizeof(option)) < 0)
+    {
+    printf("setsockopt failed\n");
+    close(sock);
+    exit(2);
+    }
+
+
+    parent_->logger->debug("Started NetlinkNotification");
+
+    thread_ = std::thread(&NetlinkNotification::execute_wait, this);
+    thread_.detach();
+    // TODO: Detaching the thread is not a problem here since we are killing the
+    // thread when the program terminates
+    // thread_.detach();
+*/
+
+
+
   }
 
   void execute() {
@@ -52,33 +102,75 @@ class Netlink::NetlinkNotification {
     }
   }
 
+void execute_wait() {
+   int socket_fd, result;
+   fd_set readset;
+   struct timeval tv;
+
+   socket_fd = nl_socket_get_fd(sk);
+
+   while (running) {
+     do {
+       tv.tv_sec = NETLINK_TIMEOUT;
+       tv.tv_usec = 0;
+       FD_ZERO(&readset);
+       FD_SET(socket_fd, &readset);
+       // The struct tv is decremented every time the select terminates.
+       // If the value is not updated, the next time select is called uses
+       // 0 as timeout value, behaving as a non-blocking socket.
+       result = select(socket_fd + 1, &readset, NULL, NULL, &tv);
+     } while (result < 0 && errno == EINTR && running);
+
+     if (result > 0) {
+       if (FD_ISSET(socket_fd, &readset)) {
+         /* The socket_fd has data available to be read */
+         nl_recvmsgs_default(sk);
+       }
+     }
+   }
+ }
+
+
+/* netlink nello
   void execute_wait() {
     int socket_fd, result;
     fd_set readset;
     struct timeval tv;
 
-    socket_fd = nl_socket_get_fd(sk);
+    tv.tv_sec = 10;
+    tv.tv_usec = 0;
 
     while (running) {
       do {
-	tv.tv_sec = NETLINK_TIMEOUT;
-	tv.tv_usec = 0;
         FD_ZERO(&readset);
-        FD_SET(socket_fd, &readset);
-	//The struct tv is decremented every time the select terminates.
-	//If the value is not updated, the next time select is called uses
-	//0 as timeout value, behaving as a non-blocking socket.
-        result = select(socket_fd + 1, &readset, NULL, NULL, &tv);
+        FD_SET(sock, &readset);
+        result = select(sock + 1, &readset, NULL, NULL, &tv);
       } while (result < 0 && errno == EINTR && running);
 
       if (result > 0) {
-        if (FD_ISSET(socket_fd, &readset)) {
-          /* The socket_fd has data available to be read */
-          nl_recvmsgs_default(sk);
+        if (FD_ISSET(sock, &readset)) {
+          // The socket_fd has data available to be read
+            int     received_bytes = 0;
+            struct  nlmsghdr *nlh;
+            char    buffer[4096];
+
+          bzero(buffer, sizeof(buffer));
+
+        received_bytes = recv(sock, buffer, sizeof(buffer), 0);
+        if (received_bytes < 0)
+            printf("recv");
+
+          nlh = (struct nlmsghdr *) buffer;
+
+          //recv_func(sock,nlh, &Netlink::getInstance(),received_bytes);
+          recv_func_1(parent_);
         }
       }
     }
   }
+*/
+
+
 
   ~NetlinkNotification() {
     running = false;
@@ -95,6 +187,14 @@ class Netlink::NetlinkNotification {
   bool running;
   std::thread thread_;
   static const long int NETLINK_TIMEOUT = 1;
+  int sock;
+
+/*
+  static int recv_func_1(Netlink *parent_) {
+    parent_->logger->info("messaggio netlink 1");
+    return 1;
+  }
+*/
 
   static int recv_func(struct nl_msg *msg, void *arg) {
     Netlink *parent = (Netlink *)arg;

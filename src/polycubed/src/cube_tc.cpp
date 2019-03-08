@@ -28,6 +28,8 @@
 namespace polycube {
 namespace polycubed {
 
+int ns_index = 100;
+
 CubeTC::CubeTC(const std::string &name,
                const std::string &service_name,
                const std::vector<std::string> &ingress_code,
@@ -42,6 +44,21 @@ CubeTC::CubeTC(const std::string &name,
   Cube::init(ingress_code, egress_code);
 
   if (shadow) {
+
+    system("sudo ln -s  /proc/1/ns/net /var/run/netns/default");
+
+    char*comand ;
+    asprintf(&comand, "ip netns del %s > /dev/null 2>&1", name.c_str());
+    system (comand);
+    asprintf(&comand, "ip netns add %s  ", name.c_str());
+    system (comand);
+    int nsid = ns_index;
+    ns_index ++;
+    asprintf(&comand, "ip netns set %s  %i ", name.c_str(), nsid);
+    system (comand);
+
+
+
     auto res = ingress_programs_[0]->open_perf_buffer("shadow_slowpath", call_back_proxy, nullptr, this);
     if (res.code() != 0) {
       logger->error("cannot open perf ring buffer for shadow_slowpath: {0}", res.msg());
@@ -107,9 +124,9 @@ void CubeTC::netlink_notification_promisc_mode(int ifindex, const std::string &i
 
   if (is_a_tap(iface)) {
     if (set_sniffer_flag(iface)) {
-      logger->info("netlink notification, {0} promisc mode on", iface);
+      logger->info("netlink notification, {0} sniffer mode on", iface);
     } else {
-      logger->info("netlink notification, {0} promisc mode off", iface);
+      logger->info("netlink notification, {0} sniffer mode off", iface);
     }
 
     update_sniffer_mode();

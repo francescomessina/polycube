@@ -136,6 +136,11 @@ class Cube : public CubeIface {
   bool set_sniffer_flag(const std::string &name);
   void update_sniffer_mode();
 
+/*
+  static const std::string RX_CODE;
+  ebpf::BPF rx_;
+*/
+
 protected:
 
   std::mutex sniffer_mutex;

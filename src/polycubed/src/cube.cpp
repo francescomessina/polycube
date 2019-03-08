@@ -3,6 +3,9 @@
 #include "port_tc.h"
 #include "port_xdp.h"
 
+#include "exceptions.h"
+#include "netlink.h"
+
 namespace polycube {
 namespace polycubed {
 
@@ -140,6 +143,29 @@ void Cube::release_port_id(uint16_t id) {
   free_ports_.insert(id);
 }
 
+
+/**********************
+
+const std::string Cube::RX_CODE = R"(
+#include <uapi/linux/pkt_cls.h>
+
+BPF_TABLE("extern", int, int, nodes, _POLYCUBE_MAX_NODES);
+
+int ingress(struct __sk_buff *skb) {
+  //bpf_trace_printk("ingress %d %x\n", skb->ifindex, ENDPOINT & 0xffff);
+  skb->cb[0] = ENDPOINT;
+  nodes.call(skb, ENDPOINT & 0xffff);
+  //bpf_trace_printk("ingress drop\n");
+  return TC_ACT_OK;
+}
+)";
+
+
+/***************************/
+
+
+
+
 std::shared_ptr<PortIface> Cube::add_port(const std::string &name) {
   std::lock_guard<std::mutex> cube_guard(cube_mutex_);
   if (ports_by_name_.count(name) != 0) {
@@ -173,6 +199,20 @@ std::shared_ptr<PortIface> Cube::add_port(const std::string &name) {
     }
 
     if (!find) {
+
+      std::string cmd_string = "ip link add " + get_name() + "_" + name + " type veth peer name " + name;
+      system(cmd_string.c_str());
+
+      cmd_string = "ifconfig " + get_name() + "_" + name + " up";
+      system(cmd_string.c_str());
+
+      cmd_string = "ip link set " + name + " netns " + get_name();
+      system(cmd_string.c_str());
+
+      cmd_string = "ip netns exec " + get_name() + " ifconfig " + name + " up";
+      system(cmd_string.c_str());
+
+      /*
       std::unique_ptr<viface::VIface> iface_;
       iface_ = std::unique_ptr<viface::VIface>(new viface::VIface(name, true, -1));
       std::string cmd_string = "sysctl -w net.ipv6.conf." + \
@@ -182,8 +222,47 @@ std::shared_ptr<PortIface> Cube::add_port(const std::string &name) {
       iface_->up();
 
       sniffer_map.insert(std::pair<std::string, bool>(iface_->getName(), false));
+      */
+
+      /*
+      try {
+        // compile rx_ ebpf program
+        std::vector<std::string> flags_rx;
+        uint32_t next = port->index() << 16 | get_index(ProgramType::INGRESS);
+        flags_rx.push_back(std::string("-DENDPOINT=") + std::to_string(next));
+        flags_rx.push_back(std::string("-D_POLYCUBE_MAX_NODES=") +
+                           std::to_string(Node::_POLYCUBE_MAX_NODES));
+
+         auto init_res = rx_.init(RX_CODE, flags_rx);
+         if (init_res.code() != 0) {
+           logger->error("Error compiling rx program: {}", init_res.msg());
+           throw BPFError("failed to init ebpf program:" + init_res.msg());
+         }
+
+         // load rx_ program
+         int fd_rx;
+         auto load_res = rx_.load_func("ingress", BPF_PROG_TYPE_SCHED_CLS, fd_rx);
+         if (load_res.code() != 0) {
+           logger->error("Error loading rx program: {}", load_res.msg());
+           throw BPFError("failed to load ebpf program: " + load_res.msg());
+         }
+
+         // attach to TC
+         Netlink::getInstance().attach_to_tc(iface_->getName(), fd_rx);
+      } catch(...) {
+        logger->error("Error loading rx program on TAP");
+      }
+      */
+
+      /*
+      cmd_string = "ip link set " + iface_->getName() + " netns " + get_name();
+      system (cmd_string.c_str());
+      */
+
+      /*
       ifaces_map.insert(std::pair<std::string, std::unique_ptr<viface::VIface>>(iface_->getName(), std::move(iface_)));
       logger->info("the interface {0} was created on Linux", name);
+      */
     }
   }
 /********************************************************************************************/
@@ -220,6 +299,7 @@ void Cube::update_sniffer_mode() {
   }
   update_sniffer_value(false);
 }
+
 /********************************************************************************************/
 
 void Cube::remove_port(const std::string &name) {
