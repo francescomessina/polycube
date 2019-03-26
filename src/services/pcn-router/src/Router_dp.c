@@ -43,7 +43,8 @@ enum {
   SLOWPATH_ARP_REPLY = 1,
   SLOWPATH_ARP_LOOKUP_MISS,
   SLOWPATH_TTL_EXCEEDED,
-  SLOWPATH_PKT_FOR_ROUTER
+  SLOWPATH_PKT_FOR_ROUTER,
+  SLOWPATH_PKT_FOR_LINUX
 };
 /* Routing Table Key */
 struct rt_k {
@@ -285,6 +286,33 @@ static int handle_rx(struct CTXTYPE *ctx, struct pkt_metadata *md) {
     pcn_log(ctx, LOG_ERR, "received packet from non valid port: %d", md->in_port);
     goto DROP;
   }
+
+/*************************************************/
+  unsigned int zero = 0;
+  bool *shadow = shadow_.lookup(&zero);
+  if (!shadow) {
+    return RX_DROP;
+  }
+  /*
+  if (*shadow)
+    pcn_log(ctx, LOG_INFO, "shadow true");
+  else
+    pcn_log(ctx, LOG_INFO, "shadow false");
+/*************************************************/
+
+  if (*shadow){
+    if (md->in_port % 2) { // traffico arriva dal NameSpace
+      return pcn_pkt_redirect(ctx, md, md->in_port - 1);
+      /*
+      u32 mdata[3];
+      return pcn_pkt_controller_with_metadata(ctx, md, SLOWPATH_PKT_FOR_LINUX, mdata);
+      */
+    }
+  }
+
+
+
+
 /*
 Check if the mac destination of the packet is multicast, broadcast, or the
 unicast address of the router port.  If not, drop the packet.
@@ -295,19 +323,6 @@ unicast address of the router port.  If not, drop the packet.
     goto DROP;
   }
 #endif
-
-/*************************************************
-  unsigned int zero = 0;
-  bool *shadow = shadow_.lookup(&zero);
-  if (!shadow) {
-    return RX_DROP;
-  }
-  if (*shadow)
-    pcn_log(ctx, LOG_INFO, "shadow true");
-  else
-    pcn_log(ctx, LOG_INFO, "shadow false");
-/*************************************************/
-
   switch (eth->proto) {
   case htons(ETH_P_IP):
     goto IP;  // ipv4 packet
@@ -324,8 +339,8 @@ IP:;  // ipv4 packet
   pcn_log(ctx, LOG_TRACE, "ttl: %u", ip->ttl);
 
 
-/****************************************************************************/
-  //pcn_log(ctx, LOG_INFO, "in_port: %d, proto: IP, ip_src: %I ip_dst: %I", md->in_port, ip->saddr, ip->daddr);
+/****************************************************************************
+  pcn_log(ctx, LOG_INFO, "in_port: %d, proto: IP, ip_src: %I ip_dst: %I", md->in_port, ip->saddr, ip->daddr);
 /******************************************************************************/
 
 
@@ -339,10 +354,13 @@ IP:;  // ipv4 packet
   /* Check if the pkt destination is one local interface of the router */
   if(rt_entry_p->type==TYPE_LOCALINTERFACE) {
 
-    /***************************************************************************
+    /***************************************************************************/
     if (*shadow) {
+      return pcn_pkt_redirect(ctx, md, md->in_port + 1);
+      /*
       pcn_log(ctx, LOG_INFO, "pacchetto ip (LOCAL) in_port: %d, ip_src: %I ip_dst: %I", md->in_port, ip->saddr, ip->daddr);
       return RX_OK;
+      */
     }
     /***************************************************************************/
 
@@ -366,10 +384,12 @@ ARP:;  // arp packet
   if (data + sizeof(*eth) + sizeof(*arp) > data_end)
     goto DROP;
 
-  /*************************************************
-  if (*shadow)
-    return RX_OK;
   /*************************************************/
+  if (*shadow)
+    return pcn_pkt_redirect(ctx, md, md->in_port + 1);
+    //return RX_OK;
+  /*************************************************/
+
 
   if (arp->ar_op == bpf_htons(ARPOP_REQUEST))  // arp request?
     return send_arp_reply(ctx, md, eth, arp, in_port);

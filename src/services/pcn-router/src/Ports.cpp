@@ -28,7 +28,54 @@ Ports::Ports(polycube::service::Cube<Ports> &parent,
   : Port(port), parent_(static_cast<Router&>(parent)) {
 
 /*****************************************************************************/
+  if (getName().find("_direct_to_linux") != std::string::npos) {
+    auto router_port = parent.get_hash_table<uint16_t, r_port>("router_port");
+    r_port value {
+      .ip = 0,
+      .netmask = 0,
+      .secondary_ip = {},
+      .secondary_netmask = {},
+      .mac = 0,
+    };
+    uint16_t index = this->index();
+
+    router_port.set(index, value);
+    logger()->info("added new port direct to linux: {0} (index: {1})",getName(),index);
+
+    return;
+  }
+
+
+
   if (parent_.getShadow()) {
+
+    if (conf.ipIsSet() && conf.netmaskIsSet() && is_netmask_valid(conf.getNetmask())) {
+      ip_ = conf.getIp();
+      netmask_ = conf.getNetmask();
+    } else {
+      throw std::runtime_error("IP and netmask are mandatory");
+    }
+
+    if (conf.macIsSet()) {
+      mac_ = conf.getMac();
+    } else {
+      mac_ = polycube::service::utils::get_random_mac();
+    }
+
+    std::string radice = "ip netns exec " + parent_.getName();
+    std::string cmd_string = radice + " ifconfig " + getName() + " " + ip_ + " netmask " + netmask_;
+    system(cmd_string.c_str());
+
+    cmd_string = radice + " ifconfig " + getName() + " down";
+    system(cmd_string.c_str());
+
+    cmd_string = radice + " ifconfig " + getName() + " hw ether " + mac_;
+    system(cmd_string.c_str());
+
+    cmd_string = radice + " ifconfig " + getName() + " up";
+    system(cmd_string.c_str());
+
+    /*
     auto ifaces = polycube::polycubed::Netlink::getInstance().get_available_ifaces();
     bool find_interface = false;
     for (auto &it : ifaces) {
@@ -67,7 +114,7 @@ Ports::Ports(polycube::service::Cube<Ports> &parent,
     if (!find_interface) {
       throw std::runtime_error("The interface is no longer present in linux, there was a problem");
     }
-
+    */
   } else { // if shadow is false
     if(conf.macIsSet())
       mac_ = conf.getMac();
@@ -203,8 +250,19 @@ void Ports::create(Router &parent, const std::string &name, const PortsJsonObjec
 
   //This method creates the actual Ports object given thee key param.
   //Please remember to call here the create static method for all sub-objects of Ports.
+  if (name.find("_direct_to_linux") != std::string::npos) {
+    throw std::runtime_error("It is not possible to insert in the name of an interface '_direct_to_linux'");
+  }
 
   parent.add_port<PortsJsonObject>(name, conf);
+
+  if (parent.getShadow()) {
+    std::string name_port_direct_to_linux = name + "_direct_to_linux";
+    PortsJsonObject conf_port_linux;
+    conf_port_linux.setName(name_port_direct_to_linux);
+
+    parent.add_port<PortsJsonObject>(name_port_direct_to_linux, conf_port_linux);
+  }
 }
 /*********************************************************************************/
 

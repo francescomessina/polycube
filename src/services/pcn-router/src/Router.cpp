@@ -30,7 +30,8 @@ enum {
   SLOWPATH_ARP_REPLY = 1,
   SLOWPATH_ARP_LOOKUP_MISS,
   SLOWPATH_TTL_EXCEEDED,
-  SLOWPATH_PKT_FOR_ROUTER
+  SLOWPATH_PKT_FOR_ROUTER,
+  SLOWPATH_PKT_FOR_LINUX
 };
 
 Router::Router(const std::string name, const RouterJsonObject &conf, CubeType type)
@@ -48,6 +49,7 @@ Router::Router(const std::string name, const RouterJsonObject &conf, CubeType ty
   // set shadow in datapath
   get_hash_table<int, bool>("shadow_").set(0, getShadow());
 
+  /*
   if (getShadow()) {
     // netlink notification
     netlink_notification_index_route_added = netlink_instance.registerObserver(
@@ -75,9 +77,11 @@ Router::Router(const std::string name, const RouterJsonObject &conf, CubeType ty
       std::bind(&Router::netlink_notification_new_address, this,
                 std::placeholders::_1, std::placeholders::_2));
   }
+  */
 }
 
 Router::~Router() {
+  /*
   if (getShadow()) {
     netlink_instance.unregisterObserver(
           polycube::polycubed::Netlink::Event::ROUTE_ADDED,
@@ -95,6 +99,7 @@ Router::~Router() {
           polycube::polycubed::Netlink::Event::NEW_ADDRESS,
           netlink_notification_index_new_address);
   }
+  */
 }
 
 void Router::update(const RouterJsonObject &conf) {
@@ -190,6 +195,10 @@ void Router::packet_in(Ports &port,
 
   case SLOWPATH_PKT_FOR_ROUTER:
     handle_router_pkt(port, md, packet);
+    break;
+
+  case SLOWPATH_PKT_FOR_LINUX:
+    handle_linux_pkt(port, md, packet);
     break;
 
   default:
@@ -589,6 +598,33 @@ void Router::find_new_active_nexthop(const std::string &network,
     logger()->debug("route not found in the data path");
 }
 
+
+
+
+
+void Router::handle_linux_pkt(Port &port, PacketInMetadata &md,
+                               const std::vector<uint8_t> &packet) {
+
+  EthernetII p(&packet[0], packet.size());
+
+  auto ports = get_ports();
+  for (auto it : ports) {
+    if (it->getName() == "p1") {
+      it->send_packet_out(p);
+      break;
+    }
+  }
+
+}
+
+
+
+
+
+
+
+
+
 /*
 * Methods to manage packets coming from the fast path
 */
@@ -799,6 +835,20 @@ void Router::notify_arp_reply(Port &port, PacketInMetadata &md,
     }
   } else {
     // no packet found, don't reply
+
+
+
+    auto ports = get_ports();
+    for (auto it : ports) {
+      if (it->getName() == "p1_direct_to_linux") {
+        it->send_packet_out(arp_reply);
+        break;
+      }
+    }
+
+
+
+
     logger()->info("no packet found for ARP reply");
   }
   mu.unlock();

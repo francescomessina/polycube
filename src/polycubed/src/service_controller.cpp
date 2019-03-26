@@ -241,7 +241,8 @@ void ServiceController::set_port_peer(Port &p, const std::string &peer_name) {
     return;
   }
 
-  std::lock_guard<std::mutex> guard(service_ctrl_mutex_);
+  if (p.name().find("_direct_to_linux") == std::string::npos)
+    std::lock_guard<std::mutex> guard(service_ctrl_mutex_);
 
   std::unique_ptr<Node> iface;
   std::string cube_name, port_name; // used if peer is cube:port syntax
