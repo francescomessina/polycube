@@ -86,5 +86,11 @@ module polycube-base {
       description "Defines the logging level of a service instance, from none (OFF) to the most verbose (TRACE)";
       polycube-base:cli-example "INFO";
     }
+
+    leaf shadow {
+      type boolean;
+      default "false";
+      description "Defines if the service is visible in Linux";
+    }
   }
 }
