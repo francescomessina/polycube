@@ -48,6 +48,8 @@ using polycube::service::CubeType;
 namespace polycube {
 namespace polycubed {
 
+static int ns_index = 100;
+
 class Cube : public BaseCube, public CubeIface {
  public:
   explicit Cube(const std::string &name, const std::string &service_name,
@@ -65,6 +67,9 @@ class Cube : public BaseCube, public CubeIface {
   void set_conf(const nlohmann::json &conf);
   nlohmann::json to_json() const;
 
+  void set_shadow(const bool &value);
+  bool get_shadow();
+
  protected:
   static std::string get_wrapper_code();
   uint16_t allocate_port_id();
@@ -80,6 +85,9 @@ class Cube : public BaseCube, public CubeIface {
   // ebpf wrappers
   static const std::string MASTER_CODE;
   static const std::string CUBE_WRAPPER;
+
+  bool shadow_;
+  int nsid;
 };
 
 }  // namespace polycubed

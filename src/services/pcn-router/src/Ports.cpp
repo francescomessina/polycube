@@ -24,6 +24,19 @@ Ports::Ports(polycube::service::Cube<Ports> &parent,
              std::shared_ptr<polycube::service::PortIface> port,
              const PortsJsonObject &conf)
     : Port(port), parent_(static_cast<Router &>(parent)) {
+
+  int pos = getName().find("_linux") != std::string::npos;
+  if (pos) {
+    std::string name_port = getName().substr(0, pos + 1);
+    std::string name_peer = parent_.getName() + "_" + name_port;
+
+    set_peer(name_peer);
+    ip_ = "-";
+    netmask_ = "-";
+    mac_ = "-";
+    return;
+  }
+
   if (conf.macIsSet())
     mac_ = conf.getMac();
   else
@@ -86,6 +99,25 @@ Ports::Ports(polycube::service::Cube<Ports> &parent,
     PortsSecondaryip::createInControlPlane(*this, addr.getIp(),
                                            addr.getNetmask(), addr);
   }
+
+
+  /* Shadow part */
+  if (parent_.getShadow()) {
+    // Create veth for the port
+    char*comand;
+    std::string port_name = getName();
+    std::string cube_name = parent_.getName();
+
+    asprintf(&comand, "ip netns exec %s ifconfig %s down", cube_name.c_str(), port_name.c_str());
+    system (comand);
+    asprintf(&comand, "ip netns exec %s ifconfig %s hw ether %s", cube_name.c_str(), port_name.c_str(), mac_.c_str());
+    system (comand);
+    asprintf(&comand, "ip netns exec %s ifconfig %s up", cube_name.c_str(), port_name.c_str());
+    system (comand);
+    asprintf(&comand, "ip netns exec %s ifconfig %s %s netmask %s", cube_name.c_str(), port_name.c_str(), ip_.c_str(), netmask_.c_str());
+    system (comand);
+
+  }
 }
 
 Ports::~Ports() {}
@@ -140,7 +172,19 @@ void Ports::create(Router &parent, const std::string &name,
   // Please remember to call here the create static method for all sub-objects
   // of Ports.
 
+  if (parent.getShadow() && name.find("_linux") != std::string::npos) {
+    throw std::runtime_error("It is not possible to create a port with name '*_linux'");
+  }
+
   parent.add_port<PortsJsonObject>(name, conf);
+
+  if (parent.getShadow()) {
+    std::string name_port_direct_to_linux = name + "_linux";
+    PortsJsonObject conf_port_linux;
+    conf_port_linux.setName(name_port_direct_to_linux);
+
+    parent.add_port<PortsJsonObject>(name_port_direct_to_linux, conf_port_linux);
+  }
 }
 
 std::shared_ptr<Ports> Ports::getEntry(Router &parent,
@@ -176,6 +220,11 @@ void Ports::removeEntry(Router &parent, const std::string &name) {
   parent.remove_port(name);
 
   parent.logger()->info("Port {0} was removed", name);
+
+  //remove also the port direct to linux
+  if (parent.getShadow()) {
+    parent.remove_port(name + "_linux");
+  }
 }
 
 std::vector<std::shared_ptr<Ports>> Ports::get(Router &parent) {

@@ -84,6 +84,9 @@ class CubeIface : virtual public BaseCubeIface {
 
   virtual void set_conf(const nlohmann::json &conf) = 0;
   virtual nlohmann::json to_json() const = 0;
+
+  virtual void set_shadow(const bool &value) = 0;
+  virtual bool get_shadow() = 0;
 };
 
 class TransparentCubeIface : virtual public BaseCubeIface {

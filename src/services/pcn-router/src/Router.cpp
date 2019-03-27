@@ -35,11 +35,15 @@ Router::Router(const std::string name, const RouterJsonObject &conf)
   logger()->info("Creating Router instance");
 
   setShadow(conf.getShadow());
+  Cube::set_shadow(getShadow());
 
   addArpEntryList(conf.getArpEntry());
   addRouteList(conf.getRoute());
 
   addPortsList(conf.getPorts());
+
+  // set shadow in datapath
+  get_hash_table<int, bool>("shadow_").set(0, getShadow());
 }
 
 Router::~Router() {}
@@ -96,7 +100,13 @@ RouterJsonObject Router::toJsonObject() {
   }
 
   for (auto &i : getPortsList()) {
-    conf.addPorts(i->toJsonObject());
+    if (!getShadow()) {
+      conf.addPorts(i->toJsonObject());
+    } else {
+      if (i->name().find("_linux") == std::string::npos) {
+        conf.addPorts(i->toJsonObject());
+      }
+    }
   }
 
   return conf;
@@ -733,8 +743,23 @@ void Router::generate_arp_reply(Port &port, PacketInMetadata &md,
       port.send_packet_out(ethframe);
     }
   } else {
-    // no packet found, don't reply
-    logger()->info("no packet found for ARP reply");
+    if (!getShadow()) {
+      // no packet found, don't reply
+      logger()->info("no packet found for ARP reply");
+    } else {
+      // send packet to namespace
+      logger()->info("send ARP reply to namespace");
+
+      std::string out_port = port.getName() + "_linux";
+      auto ports = get_ports();
+      for (auto it : ports) {
+        if (it->getName() == out_port) {
+          it->send_packet_out(arp_reply);
+          break;
+        }
+      }
+
+    }
   }
   mu.unlock();
 }

@@ -42,6 +42,12 @@ Cube::~Cube() {
   for (auto &it : ports_by_name_) {
     it.second->set_peer("");
   }
+  // Shadow part
+  if (shadow_) {
+    char*comand;
+    asprintf(&comand, "ip netns del %s > /dev/null 2>&1", get_name().c_str());
+    system (comand);
+  }
 }
 
 std::string Cube::get_wrapper_code() {
@@ -112,6 +118,22 @@ std::shared_ptr<PortIface> Cube::add_port(const std::string &name,
     break;
   }
 
+  /* Shadow part */
+  if (shadow_ && name.find("_linux") == std::string::npos) {
+    // Create veth for the port
+    char*comand;
+    std::string parent_name = get_name();
+
+    asprintf(&comand, "ip link add %s type veth peer name %s_%s", name.c_str(), parent_name.c_str(), name.c_str());
+    system (comand);
+    asprintf(&comand, "ip link set %s netns %s", name.c_str(), parent_name.c_str());
+    system (comand);
+    asprintf(&comand, "ip netns exec %s ifconfig %s up", parent_name.c_str(), name.c_str());
+    system (comand);
+    asprintf(&comand, "ifconfig %s_%s up", parent_name.c_str(), name.c_str());
+    system (comand);
+  }
+
   ports_by_name_.emplace(name, port);
   ports_by_index_.emplace(id, port);
 
@@ -143,6 +165,13 @@ void Cube::remove_port(const std::string &name) {
   ports_by_name_.erase(name);
   ports_by_index_.erase(index);
   release_port_id(index);
+
+  /* Shadow part */
+  if (shadow_ && name.find("_linux") == std::string::npos) {
+    char*comand;
+    asprintf(&comand, "ip link del %s_%s", get_name().c_str(), name.c_str());
+    system (comand);
+  }
 }
 
 std::shared_ptr<PortIface> Cube::get_port(const std::string &name) {
@@ -157,6 +186,33 @@ void Cube::update_forwarding_table(int index, int value) {
   std::lock_guard<std::mutex> cube_guard(cube_mutex_);
   if (forward_chain_)  // is the forward chain still active?
     forward_chain_->update_value(index, value);
+}
+
+void Cube::set_shadow(const bool &value) {
+  shadow_ = value;
+
+  if (shadow_) {
+    // Create namespace for the cube
+    //system("ln -s  /proc/1/ns/net /var/run/netns/default");
+
+    char*comand;
+    std::string name = get_name();
+
+    asprintf(&comand, "ip netns del %s > /dev/null 2>&1", name.c_str());
+    system (comand);
+    asprintf(&comand, "ip netns add %s  ", name.c_str());
+    system (comand);
+
+    nsid=ns_index;
+    ns_index++;
+
+    asprintf(&comand, "ip netns set %s  %i ", name.c_str(),nsid);
+    system (comand);
+  }
+}
+
+bool Cube::get_shadow() {
+  return shadow_;
 }
 
 const std::string Cube::MASTER_CODE = R"(
