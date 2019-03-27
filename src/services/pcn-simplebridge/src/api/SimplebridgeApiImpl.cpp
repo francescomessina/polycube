@@ -288,6 +288,41 @@ delete_simplebridge_ports_list_by_id(const std::string &name) {
 }
 
 /**
+* @brief   Read shadow by ID
+*
+* Read operation of resource: shadow*
+*
+* @param[in] name ID of name
+*
+* Responses:
+* bool
+*/
+bool
+read_simplebridge_shadow_by_id(const std::string &name) {
+  auto simplebridge = get_cube(name);
+  return simplebridge->getShadow();
+
+}
+
+/**
+* @brief   Update shadow by ID
+*
+* Update operation of resource: shadow*
+*
+* @param[in] name ID of name
+* @param[in] value Defines if the service is visible in Linux
+*
+* Responses:
+*
+*/
+void
+update_simplebridge_shadow_by_id(const std::string &name, const bool &value) {
+  auto simplebridge = get_cube(name);
+
+  simplebridge->setShadow(value);
+}
+
+/**
 * @brief   Read simplebridge by ID
 *
 * Read operation of resource: simplebridge*
@@ -773,4 +808,3 @@ std::vector<nlohmann::fifo_map<std::string, std::string>> read_simplebridge_port
 }
 }
 }
-

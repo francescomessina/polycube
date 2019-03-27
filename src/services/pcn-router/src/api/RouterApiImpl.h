@@ -102,6 +102,9 @@ namespace RouterApiImpl {
   void update_router_route_list_by_id(const std::string &name, const std::vector<RouteJsonObject> &value);
   void update_router_route_pathcost_by_id(const std::string &name, const std::string &network, const std::string &netmask, const std::string &nexthop, const uint32_t &value);
 
+  bool read_router_shadow_by_id(const std::string &name);
+  void update_router_shadow_by_id(const std::string &name, const bool &value);
+
   /* help related */
   std::vector<nlohmann::fifo_map<std::string, std::string>> read_router_arp_entry_list_by_id_get_list(const std::string &name);
   std::vector<nlohmann::fifo_map<std::string, std::string>> read_router_list_by_id_get_list();
@@ -114,4 +117,3 @@ namespace RouterApiImpl {
 }
 }
 }
-

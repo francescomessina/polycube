@@ -34,6 +34,8 @@ Router::Router(const std::string name, const RouterJsonObject &conf)
   logger()->set_pattern("[%Y-%m-%d %H:%M:%S.%e] [Router] [%n] [%l] %v");
   logger()->info("Creating Router instance");
 
+  setShadow(conf.getShadow());
+
   addArpEntryList(conf.getArpEntry());
   addRouteList(conf.getRoute());
 
@@ -47,6 +49,10 @@ void Router::update(const RouterJsonObject &conf) {
   // the conf JsonObject.
   // You can modify this implementation.
   Cube::set_conf(conf.getBase());
+
+  if (conf.shadowIsSet()) {
+    setShadow(conf.getShadow());
+  }
 
   if (conf.arpEntryIsSet()) {
     for (auto &i : conf.getArpEntry()) {
@@ -79,6 +85,8 @@ RouterJsonObject Router::toJsonObject() {
   RouterJsonObject conf;
   conf.setBase(Cube::to_json());
 
+  conf.setShadow(getShadow());
+
   for (auto &i : getArpEntryList()) {
     conf.addArpEntry(i->toJsonObject());
   }
@@ -101,6 +109,17 @@ std::string Router::generate_code() {
 std::vector<std::string> Router::generate_code_vector() {
   throw std::runtime_error("Method not implemented");
 }
+
+bool Router::getShadow(){
+  // This method retrieves the shadow value.
+  return shadow_;
+}
+
+void Router::setShadow(const bool &value){
+  // This method set the shadow value.
+  shadow_ = value;
+}
+
 
 void Router::packet_in(Ports &port, PacketInMetadata &md,
                        const std::vector<uint8_t> &packet) {

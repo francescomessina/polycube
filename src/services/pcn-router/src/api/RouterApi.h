@@ -104,8 +104,9 @@ Response router_ports_list_by_id_help(const char *name, const Key *keys, size_t 
 Response router_ports_secondaryip_list_by_id_help(const char *name, const Key *keys, size_t num_keys);
 Response router_route_list_by_id_help(const char *name, const Key *keys, size_t num_keys);
 
+Response read_router_shadow_by_id_handler(const char *name, const Key *keys, size_t num_keys);
+Response update_router_shadow_by_id_handler(const char *name, const Key *keys, size_t num_keys, const char *value);
 
 #ifdef __cplusplus
 }
 #endif
-

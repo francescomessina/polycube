@@ -53,6 +53,14 @@ public:
   bool nameIsSet() const;
 
   /// <summary>
+  /// Defines if the service is visible in Linux
+  /// </summary>
+  bool getShadow() const;
+  void setShadow(bool value);
+  bool shadowIsSet() const;
+  void unsetShadow();
+
+  /// <summary>
   /// Entry of the ports table
   /// </summary>
   const std::vector<PortsJsonObject>& getPorts() const;
@@ -71,6 +79,8 @@ public:
 private:
   std::string m_name;
   bool m_nameIsSet;
+  bool m_shadow;
+  bool m_shadowIsSet;
   std::vector<PortsJsonObject> m_ports;
   bool m_portsIsSet;
   FdbJsonObject m_fdb;
@@ -81,4 +91,3 @@ private:
 }
 }
 }
-

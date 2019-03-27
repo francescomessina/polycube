@@ -59,6 +59,12 @@ class Simplebridge : public polycube::service::Cube<Ports>,
   void delFdb() override;
 
   /// <summary>
+  /// Defines if the service is visible in Linux
+  /// </summary>
+  bool getShadow() override;
+  void setShadow(const bool &value) override;
+
+  /// <summary>
   /// Entry of the ports table
   /// </summary>
   std::shared_ptr<Ports> getPorts(const std::string &name) override;
@@ -73,6 +79,7 @@ class Simplebridge : public polycube::service::Cube<Ports>,
   void reloadCodeWithAgingtime(uint32_t value);
 
  private:
+  bool shadow_;
   std::unordered_map<std::string, Ports> ports_;
   std::shared_ptr<Fdb> fdb_ = nullptr;
 

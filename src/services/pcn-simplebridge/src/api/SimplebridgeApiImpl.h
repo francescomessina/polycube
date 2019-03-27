@@ -81,6 +81,9 @@ namespace SimplebridgeApiImpl {
   void update_simplebridge_ports_by_id(const std::string &name, const std::string &portsName, const PortsJsonObject &value);
   void update_simplebridge_ports_list_by_id(const std::string &name, const std::vector<PortsJsonObject> &value);
 
+  bool read_simplebridge_shadow_by_id(const std::string &name);
+  void update_simplebridge_shadow_by_id(const std::string &name, const bool &value);
+
   /* help related */
   std::vector<nlohmann::fifo_map<std::string, std::string>> read_simplebridge_fdb_entry_list_by_id_get_list(const std::string &name);
   std::vector<nlohmann::fifo_map<std::string, std::string>> read_simplebridge_list_by_id_get_list();
@@ -91,4 +94,3 @@ namespace SimplebridgeApiImpl {
 }
 }
 }
-

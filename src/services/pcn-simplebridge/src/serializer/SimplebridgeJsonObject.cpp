@@ -26,6 +26,8 @@ SimplebridgeJsonObject::SimplebridgeJsonObject() {
   m_nameIsSet = false;
   m_portsIsSet = false;
   m_fdbIsSet = false;
+  m_shadow = false;
+  m_shadowIsSet = true;
 }
 
 SimplebridgeJsonObject::SimplebridgeJsonObject(const nlohmann::json &val) :
@@ -33,7 +35,11 @@ SimplebridgeJsonObject::SimplebridgeJsonObject(const nlohmann::json &val) :
   m_nameIsSet = false;
   m_portsIsSet = false;
   m_fdbIsSet = false;
+  m_shadowIsSet = false;
 
+  if (val.count("shadow")) {
+    setShadow(val.at("shadow").get<bool>());
+  }
 
   if (val.count("name")) {
     setName(val.at("name").get<std::string>());
@@ -64,6 +70,10 @@ nlohmann::json SimplebridgeJsonObject::toJson() const {
 
   if (m_nameIsSet) {
     val["name"] = m_name;
+  }
+
+  if (m_shadowIsSet) {
+    val["shadow"] = m_shadow;
   }
 
   {
@@ -134,9 +144,24 @@ void SimplebridgeJsonObject::unsetFdb() {
   m_fdbIsSet = false;
 }
 
+bool SimplebridgeJsonObject::getShadow() const {
+  return m_shadow;
+}
+
+void SimplebridgeJsonObject::setShadow(bool value) {
+  m_shadow = value;
+  m_shadowIsSet = true;
+}
+
+bool SimplebridgeJsonObject::shadowIsSet() const {
+  return m_shadowIsSet;
+}
+
+void SimplebridgeJsonObject::unsetShadow() {
+  m_shadowIsSet = false;
+}
 
 }
 }
 }
 }
-

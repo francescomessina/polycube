@@ -384,6 +384,43 @@ delete_router_route_list_by_id(const std::string &name) {
   router->delRouteList();
 }
 
+
+/**
+* @brief   Read shadow by ID
+*
+* Read operation of resource: shadow*
+*
+* @param[in] name ID of name
+*
+* Responses:
+* bool
+*/
+bool
+read_router_shadow_by_id(const std::string &name) {
+  auto router = get_cube(name);
+  return router->getShadow();
+
+}
+
+/**
+* @brief   Update shadow by ID
+*
+* Update operation of resource: shadow*
+*
+* @param[in] name ID of name
+* @param[in] value Defines if the service is visible in Linux
+*
+* Responses:
+*
+*/
+void
+update_router_shadow_by_id(const std::string &name, const bool &value) {
+  auto router = get_cube(name);
+
+  router->setShadow(value);
+}
+
+
 /**
 * @brief   Read arp-entry by ID
 *
@@ -1224,4 +1261,3 @@ std::vector<nlohmann::fifo_map<std::string, std::string>> read_router_route_list
 }
 }
 }
-

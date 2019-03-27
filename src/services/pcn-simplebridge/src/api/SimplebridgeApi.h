@@ -81,8 +81,10 @@ Response simplebridge_fdb_entry_list_by_id_help(const char *name, const Key *key
 Response simplebridge_list_by_id_help(const char *name, const Key *keys, size_t num_keys);
 Response simplebridge_ports_list_by_id_help(const char *name, const Key *keys, size_t num_keys);
 
+Response read_simplebridge_shadow_by_id_handler(const char *name, const Key *keys, size_t num_keys);
+Response update_simplebridge_shadow_by_id_handler(const char *name, const Key *keys, size_t num_keys, const char *value);
+
 
 #ifdef __cplusplus
 }
 #endif
-

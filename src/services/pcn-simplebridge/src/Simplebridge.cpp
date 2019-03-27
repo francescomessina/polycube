@@ -32,6 +32,7 @@ Simplebridge::Simplebridge(const std::string name,
   logger()->info("Creating Simplebridge instance");
 
   addFdb(conf.getFdb());
+  setShadow(conf.getShadow());
   addPortsList(conf.getPorts());
 
   timestamp_update_thread_ =
@@ -81,6 +82,10 @@ void Simplebridge::update(const SimplebridgeJsonObject &conf) {
   // update base cube implementation
   Cube::set_conf(conf.getBase());
 
+  if (conf.shadowIsSet()) {
+    setShadow(conf.getShadow());
+  }
+
   if (conf.fdbIsSet()) {
     auto m = getFdb();
     m->update(conf.getFdb());
@@ -100,6 +105,8 @@ SimplebridgeJsonObject Simplebridge::toJsonObject() {
   conf.setBase(Cube::to_json());
 
   conf.setFdb(getFdb()->toJsonObject());
+
+  conf.setShadow(getShadow());
 
   for (auto &i : getPortsList()) {
     conf.addPorts(i->toJsonObject());
@@ -165,4 +172,14 @@ void Simplebridge::reloadCodeWithAgingtime(uint32_t aging_time) {
   reload(aging_time_str + simplebridge_code);
 
   logger()->trace("New bridge code reloaded");
+}
+
+bool Simplebridge::getShadow(){
+  // This method retrieves the shadow value.
+  return shadow_;
+}
+
+void Simplebridge::setShadow(const bool &value){
+  // This method set the shadow value.
+  shadow_ = value;
 }
