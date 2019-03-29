@@ -92,5 +92,11 @@ module polycube-base {
       default "false";
       description "Defines if the service is visible in Linux";
     }
+
+    leaf debugmod {
+      type boolean;
+      default "false";
+      description "Defines if all traffic is sent to Linux";
+    }
   }
 }

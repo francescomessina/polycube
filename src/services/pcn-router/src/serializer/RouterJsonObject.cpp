@@ -29,6 +29,8 @@ RouterJsonObject::RouterJsonObject() {
   m_arpEntryIsSet = false;
   m_shadow = false;
   m_shadowIsSet = true;
+  m_debugmod = false;
+  m_debugmodIsSet = true;
 }
 
 RouterJsonObject::RouterJsonObject(const nlohmann::json &val) :
@@ -38,7 +40,7 @@ RouterJsonObject::RouterJsonObject(const nlohmann::json &val) :
   m_routeIsSet = false;
   m_arpEntryIsSet = false;
   m_shadowIsSet = false;
-
+  m_debugmodIsSet = false;
 
   if (val.count("name")) {
     setName(val.at("name").get<std::string>());
@@ -46,6 +48,10 @@ RouterJsonObject::RouterJsonObject(const nlohmann::json &val) :
 
   if (val.count("shadow")) {
     setShadow(val.at("shadow").get<bool>());
+  }
+
+  if (val.count("debugmod")) {
+    setDebugmod(val.at("debugmod").get<bool>());
   }
 
   if (val.count("ports")) {
@@ -88,6 +94,10 @@ nlohmann::json RouterJsonObject::toJson() const {
 
   if (m_shadowIsSet) {
     val["shadow"] = m_shadow;
+  }
+
+  if (m_debugmodIsSet) {
+    val["debugmod"] = m_debugmod;
   }
 
   {
@@ -210,6 +220,23 @@ bool RouterJsonObject::shadowIsSet() const {
 
 void RouterJsonObject::unsetShadow() {
   m_shadowIsSet = false;
+}
+
+bool RouterJsonObject::getDebugmod() const {
+  return m_debugmod;
+}
+
+void RouterJsonObject::setDebugmod(bool value) {
+  m_debugmod = value;
+  m_debugmodIsSet = true;
+}
+
+bool RouterJsonObject::debugmodIsSet() const {
+  return m_debugmodIsSet;
+}
+
+void RouterJsonObject::unsetDebugmod() {
+  m_debugmodIsSet = false;
 }
 
 }

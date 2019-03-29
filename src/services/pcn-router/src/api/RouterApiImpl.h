@@ -104,6 +104,9 @@ namespace RouterApiImpl {
 
   bool read_router_shadow_by_id(const std::string &name);
   void update_router_shadow_by_id(const std::string &name, const bool &value);
+  bool read_router_debugmod_by_id(const std::string &name);
+  void update_router_debugmod_by_id(const std::string &name, const bool &value);
+
 
   /* help related */
   std::vector<nlohmann::fifo_map<std::string, std::string>> read_router_arp_entry_list_by_id_get_list(const std::string &name);

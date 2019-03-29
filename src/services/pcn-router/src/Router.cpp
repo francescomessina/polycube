@@ -26,7 +26,8 @@ enum {
   SLOWPATH_ARP_REPLY = 1,
   SLOWPATH_ARP_LOOKUP_MISS,
   SLOWPATH_TTL_EXCEEDED,
-  SLOWPATH_PKT_FOR_ROUTER
+  SLOWPATH_PKT_FOR_ROUTER,
+  SLOWPATH_DEBUG
 };
 
 Router::Router(const std::string name, const RouterJsonObject &conf)
@@ -34,6 +35,7 @@ Router::Router(const std::string name, const RouterJsonObject &conf)
   logger()->set_pattern("[%Y-%m-%d %H:%M:%S.%e] [Router] [%n] [%l] %v");
   logger()->info("Creating Router instance");
 
+  setDebugmod(conf.getDebugmod());
   setShadow(conf.getShadow());
   Cube::set_shadow(getShadow());
 
@@ -44,6 +46,8 @@ Router::Router(const std::string name, const RouterJsonObject &conf)
 
   // set shadow in datapath
   get_hash_table<int, bool>("shadow_").set(0, getShadow());
+  // set debug mode in datapath
+  get_hash_table<int, bool>("debugmod_").set(0, getDebugmod());
 }
 
 Router::~Router() {}
@@ -56,6 +60,10 @@ void Router::update(const RouterJsonObject &conf) {
 
   if (conf.shadowIsSet()) {
     setShadow(conf.getShadow());
+  }
+
+  if (conf.debugmodIsSet()) {
+    setDebugmod(conf.getDebugmod());
   }
 
   if (conf.arpEntryIsSet()) {
@@ -90,6 +98,7 @@ RouterJsonObject Router::toJsonObject() {
   conf.setBase(Cube::to_json());
 
   conf.setShadow(getShadow());
+  conf.setDebugmod(getDebugmod());
 
   for (auto &i : getArpEntryList()) {
     conf.addArpEntry(i->toJsonObject());
@@ -130,10 +139,33 @@ void Router::setShadow(const bool &value){
   shadow_ = value;
 }
 
+bool Router::getDebugmod(){
+  // This method retrieves the debugmod value.
+  return debugmod_;
+}
+
+void Router::setDebugmod(const bool &value){
+  // This method set the debugmod value.
+  debugmod_ = value;
+  // set debug mode in datapath
+  get_hash_table<int, bool>("debugmod_").set(0, value);
+}
 
 void Router::packet_in(Ports &port, PacketInMetadata &md,
                        const std::vector<uint8_t> &packet) {
   logger()->debug("Packet received from port {0}", port.name());
+
+  if (getShadow() && getDebugmod()) {
+    EthernetII p(&packet[0], packet.size());
+    std::string out_port = port.getName() + "_linux";
+    auto ports = get_ports();
+    for (auto it : ports) {
+      if (it->getName() == out_port) {
+        it->send_packet_out(p);
+        break;
+      }
+    }
+  }
 
   switch (md.reason) {
   case SLOWPATH_TTL_EXCEEDED:
@@ -150,6 +182,10 @@ void Router::packet_in(Ports &port, PacketInMetadata &md,
 
   case SLOWPATH_PKT_FOR_ROUTER:
     handle_router_pkt(port, md, packet);
+    break;
+
+  case SLOWPATH_DEBUG:
+    handle_debug_pkt(port, md, packet);
     break;
 
   default:
@@ -564,6 +600,27 @@ void Router::find_new_active_nexthop(const std::string &network,
 /*
 * Methods to manage packets coming from the fast path
 */
+void Router::handle_debug_pkt(Port &port, PacketInMetadata &md,
+                               const std::vector<uint8_t> &packet) {
+  EthernetII p(&packet[0], packet.size());
+  int out_port(md.metadata[0]);
+  auto ports = get_ports();
+  bool flag1 = false;
+  bool flag2 = false;
+  for (auto it : ports) {
+    if (it->index() == out_port) {
+      it->send_packet_out(p);
+      flag1 = true;
+    }
+    if (it->index() == out_port + 1) {
+      it->send_packet_out(p);
+      flag2 = true;
+    }
+    if (flag1 && flag2) {
+      break;
+    }
+  }
+}
 
 void Router::handle_router_pkt(Port &port, PacketInMetadata &md,
                                const std::vector<uint8_t> &packet) {

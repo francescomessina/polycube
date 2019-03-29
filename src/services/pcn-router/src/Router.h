@@ -105,6 +105,12 @@ class Router : public polycube::service::Cube<Ports>, public RouterInterface {
   void setShadow(const bool &value) override;
 
   /// <summary>
+  /// Defines if all traffic is sent to Linux
+  /// </summary>
+  bool getDebugmod() override;
+  void setDebugmod(const bool &value) override;
+
+  /// <summary>
   /// Entry of the ports table
   /// </summary>
   std::shared_ptr<Ports> getPorts(const std::string &name) override;
@@ -147,6 +153,7 @@ class Router : public polycube::service::Cube<Ports>, public RouterInterface {
  private:
   // The following variables have been added by hand
   bool shadow_;
+  bool debugmod_;
 
   std::map<std::tuple<std::string, std::string, std::string>, Route> routes_;
 
@@ -159,6 +166,8 @@ class Router : public polycube::service::Cube<Ports>, public RouterInterface {
   // The following methods have been added by hand
 
   // Methods to manage packets coming from the fast path
+  void handle_debug_pkt(Port &port, PacketInMetadata &md,
+                         const std::vector<uint8_t> &packet);
   void handle_router_pkt(Port &port, PacketInMetadata &md,
                          const std::vector<uint8_t> &packet);
   EthernetII make_echo_reply(EthernetII &origin, const IPv4Address &src_ip,

@@ -107,6 +107,9 @@ Response router_route_list_by_id_help(const char *name, const Key *keys, size_t 
 Response read_router_shadow_by_id_handler(const char *name, const Key *keys, size_t num_keys);
 Response update_router_shadow_by_id_handler(const char *name, const Key *keys, size_t num_keys, const char *value);
 
+Response read_router_debugmod_by_id_handler(const char *name, const Key *keys, size_t num_keys);
+Response update_router_debugmod_by_id_handler(const char *name, const Key *keys, size_t num_keys, const char *value);
+
 #ifdef __cplusplus
 }
 #endif

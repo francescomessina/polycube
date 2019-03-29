@@ -39,7 +39,14 @@ public:
   /// </summary>
   virtual bool getShadow() = 0;
   virtual void setShadow(const bool &value) = 0;
-  
+
+  /// <summary>
+  /// Defines if all traffic is sent to Linux
+  /// </summary>
+  virtual bool getDebugmod() = 0;
+  virtual void setDebugmod(const bool &value) = 0;
+
+
   /// <summary>
   /// Entry of the ports table
   /// </summary>

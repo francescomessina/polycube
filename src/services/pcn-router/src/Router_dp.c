@@ -43,7 +43,8 @@ enum {
   SLOWPATH_ARP_REPLY = 1,
   SLOWPATH_ARP_LOOKUP_MISS,
   SLOWPATH_TTL_EXCEEDED,
-  SLOWPATH_PKT_FOR_ROUTER
+  SLOWPATH_PKT_FOR_ROUTER,
+  SLOWPATH_DEBUG
 };
 /* Routing Table Key */
 struct rt_k {
@@ -109,6 +110,8 @@ struct arp_hdr {
 
 // BPF table of single element that saves the shadow attribute
 BPF_TABLE("hash", int, bool, shadow_, 1);
+// BPF table of single element that saves the debugmod attribute
+BPF_TABLE("hash", int, bool, debugmod_, 1);
 
 static inline int send_packet_for_router_to_slowpath(struct CTXTYPE *ctx,
                                                      struct pkt_metadata *md,
@@ -200,6 +203,19 @@ static inline int send_packet_to_output_interface(
   ip->ttl = (__u8)new_ttl;
   bpf_l3_csum_replace(ctx, IP_CSUM_OFFSET, 0, l3sum, 0);
 #endif
+
+  /* Debugmod check */
+  unsigned int zero = 0;
+  bool *debugmod = debugmod_.lookup(&zero);
+  if (!debugmod) {
+    return RX_DROP;
+  }
+  if (*debugmod) {
+    // send the slowpath that redirect to namespace.
+    u32 mdata[3];
+    mdata[0] = out_port;
+    return pcn_pkt_controller_with_metadata(ctx, md, SLOWPATH_DEBUG, mdata);
+  }
 
   return pcn_pkt_redirect(ctx, md, out_port);
 }

@@ -420,6 +420,40 @@ update_router_shadow_by_id(const std::string &name, const bool &value) {
   router->setShadow(value);
 }
 
+/**
+* @brief   Read debugmod by ID
+*
+* Read operation of resource: debugmod*
+*
+* @param[in] name ID of name
+*
+* Responses:
+* bool
+*/
+bool
+read_router_debugmod_by_id(const std::string &name) {
+  auto router = get_cube(name);
+  return router->getDebugmod();
+
+}
+
+/**
+* @brief   Update debugmod by ID
+*
+* Update operation of resource: debugmod*
+*
+* @param[in] name ID of name
+* @param[in] value Defines if the service is visible in Linux
+*
+* Responses:
+*
+*/
+void
+update_router_debugmod_by_id(const std::string &name, const bool &value) {
+  auto router = get_cube(name);
+
+  router->setDebugmod(value);
+}
 
 /**
 * @brief   Read arp-entry by ID

@@ -62,6 +62,14 @@ public:
   void unsetShadow();
 
   /// <summary>
+  /// Defines if all traffic is sent to Linux
+  /// </summary>
+  bool getDebugmod() const;
+  void setDebugmod(bool value);
+  bool debugmodIsSet() const;
+  void unsetDebugmod();
+
+  /// <summary>
   /// Entry of the ports table
   /// </summary>
   const std::vector<PortsJsonObject>& getPorts() const;
@@ -96,6 +104,8 @@ private:
   bool m_arpEntryIsSet;
   bool m_shadow;
   bool m_shadowIsSet;
+  bool m_debugmod;
+  bool m_debugmodIsSet;
 };
 
 }
