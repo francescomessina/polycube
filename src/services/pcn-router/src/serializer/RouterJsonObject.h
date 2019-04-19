@@ -54,6 +54,22 @@ public:
   bool nameIsSet() const;
 
   /// <summary>
+  /// Defines if the service is visible in Linux
+  /// </summary>
+  bool getShadow() const;
+  void setShadow(bool value);
+  bool shadowIsSet() const;
+  void unsetShadow();
+
+  /// <summary>
+  /// Defines if all traffic is sent to Linux
+  /// </summary>
+  bool getSpan() const;
+  void setSpan(bool value);
+  bool spanIsSet() const;
+  void unsetSpan();
+
+  /// <summary>
   /// Entry of the ports table
   /// </summary>
   const std::vector<PortsJsonObject>& getPorts() const;
@@ -86,10 +102,13 @@ private:
   bool m_routeIsSet;
   std::vector<ArpEntryJsonObject> m_arpEntry;
   bool m_arpEntryIsSet;
+  bool m_shadow;
+  bool m_shadowIsSet;
+  bool m_span;
+  bool m_spanIsSet;
 };
 
 }
 }
 }
 }
-

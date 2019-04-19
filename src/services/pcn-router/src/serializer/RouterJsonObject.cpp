@@ -27,6 +27,10 @@ RouterJsonObject::RouterJsonObject() {
   m_portsIsSet = false;
   m_routeIsSet = false;
   m_arpEntryIsSet = false;
+  m_shadow = false;
+  m_shadowIsSet = true;
+  m_span = false;
+  m_spanIsSet = true;
 }
 
 RouterJsonObject::RouterJsonObject(const nlohmann::json &val) :
@@ -35,10 +39,19 @@ RouterJsonObject::RouterJsonObject(const nlohmann::json &val) :
   m_portsIsSet = false;
   m_routeIsSet = false;
   m_arpEntryIsSet = false;
-
+  m_shadowIsSet = false;
+  m_spanIsSet = false;
 
   if (val.count("name")) {
     setName(val.at("name").get<std::string>());
+  }
+
+  if (val.count("shadow")) {
+    setShadow(val.at("shadow").get<bool>());
+  }
+
+  if (val.count("span")) {
+    setSpan(val.at("span").get<bool>());
   }
 
   if (val.count("ports")) {
@@ -88,6 +101,14 @@ nlohmann::json RouterJsonObject::toJson() const {
     if (jsonArray.size() > 0) {
       val["ports"] = jsonArray;
     }
+  }
+
+  if (m_shadowIsSet) {
+    val["shadow"] = m_shadow;
+  }
+
+  if (m_spanIsSet) {
+    val["span"] = m_span;
   }
 
   {
@@ -184,9 +205,41 @@ void RouterJsonObject::unsetArpEntry() {
   m_arpEntryIsSet = false;
 }
 
+bool RouterJsonObject::getShadow() const {
+  return m_shadow;
+}
+
+void RouterJsonObject::setShadow(bool value) {
+  m_shadow = value;
+  m_shadowIsSet = true;
+}
+
+bool RouterJsonObject::shadowIsSet() const {
+  return m_shadowIsSet;
+}
+
+void RouterJsonObject::unsetShadow() {
+  m_shadowIsSet = false;
+}
+
+bool RouterJsonObject::getSpan() const {
+  return m_span;
+}
+
+void RouterJsonObject::setSpan(bool value) {
+  m_span = value;
+  m_spanIsSet = true;
+}
+
+bool RouterJsonObject::spanIsSet() const {
+  return m_spanIsSet;
+}
+
+void RouterJsonObject::unsetSpan() {
+  m_spanIsSet = false;
+}
 
 }
 }
 }
 }
-

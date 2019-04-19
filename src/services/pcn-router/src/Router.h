@@ -99,6 +99,18 @@ class Router : public polycube::service::Cube<Ports>, public RouterInterface {
   void delRouteList() override;
 
   /// <summary>
+  /// Defines if the service is visible in Linux
+  /// </summary>
+  bool getShadow() override;
+  void setShadow(const bool &value) override;
+
+  /// <summary>
+  /// Defines if all traffic is sent to Linux
+  /// </summary>
+  bool getSpan() override;
+  void setSpan(const bool &value) override;
+
+  /// <summary>
   /// Entry of the ports table
   /// </summary>
   std::shared_ptr<Ports> getPorts(const std::string &name) override;
@@ -141,6 +153,8 @@ class Router : public polycube::service::Cube<Ports>, public RouterInterface {
  private:
   // The following variables have been added by hand
   std::map<std::tuple<std::string, std::string, std::string>, Route> routes_;
+  bool shadow_;
+  bool span_;
 
   // Mutex used to regulate access to the buffer of stored packets
   std::mutex mu;

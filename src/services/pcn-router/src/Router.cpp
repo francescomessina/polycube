@@ -34,6 +34,9 @@ Router::Router(const std::string name, const RouterJsonObject &conf)
   logger()->set_pattern("[%Y-%m-%d %H:%M:%S.%e] [Router] [%n] [%l] %v");
   logger()->info("Creating Router instance");
 
+  setShadow(conf.getShadow());
+  setSpan(conf.getSpan());
+
   addArpEntryList(conf.getArpEntry());
   addRouteList(conf.getRoute());
 
@@ -47,6 +50,13 @@ void Router::update(const RouterJsonObject &conf) {
   // the conf JsonObject.
   // You can modify this implementation.
   Cube::set_conf(conf.getBase());
+
+  if (conf.shadowIsSet()) {
+    setShadow(conf.getShadow());
+  }
+  if (conf.spanIsSet()) {
+    setSpan(conf.getSpan());
+  }
 
   if (conf.arpEntryIsSet()) {
     for (auto &i : conf.getArpEntry()) {
@@ -79,6 +89,9 @@ RouterJsonObject Router::toJsonObject() {
   RouterJsonObject conf;
   conf.setBase(Cube::to_json());
 
+  conf.setShadow(getShadow());
+  conf.setSpan(getSpan());
+
   for (auto &i : getArpEntryList()) {
     conf.addArpEntry(i->toJsonObject());
   }
@@ -100,6 +113,24 @@ std::string Router::generate_code() {
 
 std::vector<std::string> Router::generate_code_vector() {
   throw std::runtime_error("Method not implemented");
+}
+
+bool Router::getShadow(){
+  // This method retrieves the shadow value.
+  return shadow_;
+}
+void Router::setShadow(const bool &value){
+  // This method set the shadow value.
+  shadow_ = value;
+}
+
+bool Router::getSpan(){
+  // This method retrieves the span mode value.
+  return span_;
+}
+void Router::setSpan(const bool &value){
+  // This method set the span mode value.
+  span_ = value;
 }
 
 void Router::packet_in(Ports &port, PacketInMetadata &md,

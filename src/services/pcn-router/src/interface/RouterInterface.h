@@ -35,6 +35,18 @@ public:
   virtual RouterJsonObject toJsonObject() = 0;
 
   /// <summary>
+  /// Defines if the service is visible in Linux
+  /// </summary>
+  virtual bool getShadow() = 0;
+  virtual void setShadow(const bool &value) = 0;
+
+  /// <summary>
+  /// Defines if all traffic is sent to Linux
+  /// </summary>
+  virtual bool getSpan() = 0;
+  virtual void setSpan(const bool &value) = 0;
+
+  /// <summary>
   /// Entry of the ports table
   /// </summary>
   virtual std::shared_ptr<Ports> getPorts(const std::string &name) = 0;
@@ -67,4 +79,3 @@ public:
   virtual void delArpEntry(const std::string &address) = 0;
   virtual void delArpEntryList() = 0;
 };
-
