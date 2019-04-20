@@ -24,6 +24,20 @@ Ports::Ports(polycube::service::Cube<Ports> &parent,
              std::shared_ptr<polycube::service::PortIface> port,
              const PortsJsonObject &conf)
     : Port(port), parent_(static_cast<Router &>(parent)) {
+
+  /* Check if it is a hidden port */
+  int index_name = getName().find("_linux") != std::string::npos;
+  if (index_name) {
+    std::string name_port = getName().substr(0, index_name + 1);
+    std::string name_peer = parent_.getName() + "_" + name_port;
+
+    set_peer(name_peer);
+    ip_ = "-";
+    netmask_ = "-";
+    mac_ = "-";
+    return;
+  }
+
   if (conf.macIsSet())
     mac_ = conf.getMac();
   else
@@ -85,6 +99,23 @@ Ports::Ports(polycube::service::Cube<Ports> &parent,
   for (auto &addr : secondary_ips) {
     PortsSecondaryip::createInControlPlane(*this, addr.getIp(),
                                            addr.getNetmask(), addr);
+  }
+
+  /* Shadow part */
+  if (parent_.getShadow()) {
+    // set port parameters
+    char*comand;
+    std::string port_name = getName();
+    std::string cube_name = parent_.getName();
+
+    asprintf(&comand, "ip netns exec pcn-%s ifconfig %s down", cube_name.c_str(), port_name.c_str());
+    system (comand);
+    asprintf(&comand, "ip netns exec pcn-%s ifconfig %s hw ether %s", cube_name.c_str(), port_name.c_str(), mac_.c_str());
+    system (comand);
+    asprintf(&comand, "ip netns exec pcn-%s ifconfig %s up", cube_name.c_str(), port_name.c_str());
+    system (comand);
+    asprintf(&comand, "ip netns exec pcn-%s ifconfig %s %s netmask %s", cube_name.c_str(), port_name.c_str(), ip_.c_str(), netmask_.c_str());
+    system (comand);
   }
 }
 

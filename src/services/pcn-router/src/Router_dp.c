@@ -106,6 +106,10 @@ struct arp_hdr {
 * packet to the slowpath. The slowpath searchs if the destination ip is one of
 * ip in the router and generates an echo reply
 */
+
+// BPF table of single element that saves the shadow attribute
+BPF_TABLE("hash", int, bool, shadow_, 1);
+
 static inline int send_packet_for_router_to_slowpath(struct CTXTYPE *ctx,
                                                      struct pkt_metadata *md,
                                                      struct eth_hdr *eth,
@@ -274,6 +278,19 @@ static int handle_rx(struct CTXTYPE *ctx, struct pkt_metadata *md) {
   pcn_log(ctx, LOG_TRACE, "in_port: %d, proto: 0x%x, mac_src: %M mac_dst: %M",
           md->in_port, bpf_htons(eth->proto), eth->src, eth->dst);
 
+  /* Shadow part */
+  unsigned int zero = 0;
+  bool *shadow = shadow_.lookup(&zero);
+  if (!shadow) {
+    return RX_DROP;
+  }
+  // index % 2 -> package from the Linux namespace
+  if (*shadow && md->in_port % 2) {
+    // redirect on the out_port
+    u16 out_port = md->in_port - 1;
+    return pcn_pkt_redirect(ctx, md, out_port);
+  }
+
   struct r_port *in_port = router_port.lookup(&md->in_port);
   if (!in_port) {
     pcn_log(ctx, LOG_ERR, "received packet from non valid port: %d",
@@ -315,6 +332,10 @@ IP:;  // ipv4 packet
   }
   /* Check if the pkt destination is one local interface of the router */
   if (rt_entry_p->type == TYPE_LOCALINTERFACE) {
+    if (*shadow) {
+      u16 out_port = md->in_port + 1;
+      return pcn_pkt_redirect(ctx, md, out_port);
+    }
     return send_packet_for_router_to_slowpath(ctx, md, eth, ip);
   }
   if (ip->ttl == 1) {
@@ -334,8 +355,13 @@ ARP:;  // arp packet
   struct arp_hdr *arp = data + sizeof(*eth);
   if (data + sizeof(*eth) + sizeof(*arp) > data_end)
     goto DROP;
-  if (arp->ar_op == bpf_htons(ARPOP_REQUEST))  // arp request?
+  if (arp->ar_op == bpf_htons(ARPOP_REQUEST)) { // arp request?
+    if (*shadow) {
+      u16 out_port = md->in_port + 1;
+      return pcn_pkt_redirect(ctx, md, out_port);
+    }
     return send_arp_reply(ctx, md, eth, arp, in_port);
+  }
   else if (arp->ar_op == bpf_htons(ARPOP_REPLY))  // arp reply
     return notify_arp_reply_to_slowpath(ctx, md, arp);
   return RX_DROP;

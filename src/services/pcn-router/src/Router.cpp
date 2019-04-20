@@ -36,6 +36,10 @@ Router::Router(const std::string name, const RouterJsonObject &conf)
 
   setShadow(conf.getShadow());
   setSpan(conf.getSpan());
+  Cube::set_shadow(getShadow());
+
+  // set shadow in datapath
+  get_hash_table<int, bool>("shadow_").set(0, getShadow());
 
   addArpEntryList(conf.getArpEntry());
   addRouteList(conf.getRoute());
@@ -101,7 +105,14 @@ RouterJsonObject Router::toJsonObject() {
   }
 
   for (auto &i : getPortsList()) {
-    conf.addPorts(i->toJsonObject());
+    // Hidden ports are not shown
+    if (!getShadow()) {
+      conf.addPorts(i->toJsonObject());
+    } else {
+      if (i->name().find("_linux") == std::string::npos) {
+        conf.addPorts(i->toJsonObject());
+      }
+    }
   }
 
   return conf;
@@ -745,8 +756,22 @@ void Router::generate_arp_reply(Port &port, PacketInMetadata &md,
       port.send_packet_out(ethframe);
     }
   } else {
-    // no packet found, don't reply
-    logger()->info("no packet found for ARP reply");
+    if (!getShadow()) {
+      // no packet found, don't reply
+      logger()->info("no packet found for ARP reply");
+    } else {
+      // send packet to namespace
+      logger()->debug("send ARP reply to namespace");
+
+      std::string out_port = port.getName() + "_linux";
+      auto ports = get_ports();
+      for (auto it : ports) {
+        if (it->getName() == out_port) {
+          it->send_packet_out(arp_reply);
+          break;
+        }
+      }
+    }
   }
   mu.unlock();
 }
@@ -760,7 +785,22 @@ std::vector<std::shared_ptr<Ports>> Router::getPortsList() {
 }
 
 void Router::addPorts(const std::string &name, const PortsJsonObject &conf) {
+
+  if (getShadow() && name.find("_linux") != std::string::npos) {
+    throw std::runtime_error("It is not possible to create a port with name '*_linux'");
+  }
+
   add_port<PortsJsonObject>(name, conf);
+
+  /* Shadow part */
+  if (getShadow()) {
+    // add second port
+    std::string name_port_direct_to_linux = name + "_linux";
+    PortsJsonObject conf_port_linux;
+    conf_port_linux.setName(name_port_direct_to_linux);
+
+    add_port<PortsJsonObject>(name_port_direct_to_linux, conf_port_linux);
+  }
 }
 
 void Router::addPortsList(const std::vector<PortsJsonObject> &conf) {
@@ -799,6 +839,11 @@ void Router::delPorts(const std::string &name) {
   remove_port(name);
 
   logger()->info("Port {0} was removed", name);
+
+  //remove also the port direct to linux
+  if (getShadow()) {
+    remove_port(name + "_linux");
+  }
 }
 
 void Router::delPortsList() {
