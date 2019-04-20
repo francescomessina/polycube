@@ -52,7 +52,7 @@ class Netlink {
   ~Netlink();
 
   // TODO: Add here new events needed for the future
-  enum Event { LINK_DELETED, ALL };
+  enum Event { LINK_ADDED, LINK_DELETED, ROUTE_ADDED, ROUTE_DELETED, NEW_ADDRESS, ALL };
   // enum Event { LINK_DELETED };
   static Netlink &getInstance() {
     static Netlink instance;
@@ -105,6 +105,10 @@ class Netlink {
  private:
   void notify_link_deleted(int ifindex, const std::string &iface);
   void notify_all(int ifindex, const std::string &iface);
+  void notify_link_added(int ifindex, const std::string &iface);
+  void notify_route_added(int ifindex, const std::string &info_route);
+  void notify_route_deleted(int ifindex, const std::string &info_route);
+  void notify_new_address(int ifindex, const std::string &info_address);
 
   std::shared_ptr<spdlog::logger> logger;
   std::mutex notify_mutex;
