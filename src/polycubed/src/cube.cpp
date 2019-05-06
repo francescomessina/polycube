@@ -124,13 +124,16 @@ std::shared_ptr<PortIface> Cube::add_port(const std::string &name,
     char*comand;
     std::string parent_name = get_name();
 
-    asprintf(&comand, "ip link add %s type veth peer name %s_%s", name.c_str(), parent_name.c_str(), name.c_str());
+    asprintf(&comand, "ip link add %s_%s type veth peer name %s%s", parent_name.c_str(), name.c_str(),
+                                                                    parent_name.c_str(), name.c_str());
     system (comand);
-    asprintf(&comand, "ip link set %s netns pcn-%s", name.c_str(), parent_name.c_str());
+    asprintf(&comand, "ip link set %s_%s netns pcn-%s", parent_name.c_str(), name.c_str(),
+                                                                      parent_name.c_str());
     system (comand);
-    asprintf(&comand, "ip netns exec pcn-%s ifconfig %s up", parent_name.c_str(), name.c_str());
+    asprintf(&comand, "ip netns exec pcn-%s ifconfig %s_%s up", parent_name.c_str(), parent_name.c_str(),
+                                                                                          name.c_str());
     system (comand);
-    asprintf(&comand, "ifconfig %s_%s up", parent_name.c_str(), name.c_str());
+    asprintf(&comand, "ifconfig %s%s up", parent_name.c_str(), name.c_str());
     system (comand);
   }
 
@@ -174,7 +177,7 @@ void Cube::remove_port(const std::string &name) {
   /* Shadow part */
   if (shadow_ && name.find("_linux") == std::string::npos) {
     char*comand;
-    asprintf(&comand, "ip link del %s_%s", get_name().c_str(), name.c_str());
+    asprintf(&comand, "ip link del %s%s", get_name().c_str(), name.c_str());
     system (comand);
   }
 }

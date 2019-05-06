@@ -32,3 +32,9 @@ std::string get_network_from_ip(const std::string &ip,
                                 const std::string &netmask);
 
 bool is_netmask_valid(const std::string &netmask);
+
+std::string get_netmask_from_CIDR(const int cidr);
+
+std::string get_ip_interface(const std::string &name_iface);
+std::string get_netmask_interface(const std::string &name_iface);
+std::string get_mac_interface(const std::string &name_iface);

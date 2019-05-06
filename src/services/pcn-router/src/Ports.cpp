@@ -29,7 +29,7 @@ Ports::Ports(polycube::service::Cube<Ports> &parent,
   int index_name = getName().find("_linux") != std::string::npos;
   if (index_name) {
     std::string name_port = getName().substr(0, index_name + 1);
-    std::string name_peer = parent_.getName() + "_" + name_port;
+    std::string name_peer = parent_.getName() + name_port;
 
     set_peer(name_peer);
     ip_ = "-";
@@ -108,13 +108,17 @@ Ports::Ports(polycube::service::Cube<Ports> &parent,
     std::string port_name = getName();
     std::string cube_name = parent_.getName();
 
-    asprintf(&comand, "ip netns exec pcn-%s ifconfig %s down", cube_name.c_str(), port_name.c_str());
+    asprintf(&comand, "ip netns exec pcn-%s ifconfig %s_%s down", cube_name.c_str(), cube_name.c_str(),
+                                                                                    port_name.c_str());
     system (comand);
-    asprintf(&comand, "ip netns exec pcn-%s ifconfig %s hw ether %s", cube_name.c_str(), port_name.c_str(), mac_.c_str());
+    asprintf(&comand, "ip netns exec pcn-%s ifconfig %s_%s hw ether %s", cube_name.c_str(), cube_name.c_str(),
+                                                                              port_name.c_str(), mac_.c_str());
     system (comand);
-    asprintf(&comand, "ip netns exec pcn-%s ifconfig %s up", cube_name.c_str(), port_name.c_str());
+    asprintf(&comand, "ip netns exec pcn-%s ifconfig %s_%s up", cube_name.c_str(), cube_name.c_str(),
+                                                                                  port_name.c_str());
     system (comand);
-    asprintf(&comand, "ip netns exec pcn-%s ifconfig %s %s netmask %s", cube_name.c_str(), port_name.c_str(), ip_.c_str(), netmask_.c_str());
+    asprintf(&comand, "ip netns exec pcn-%s ifconfig %s_%s %s netmask %s", cube_name.c_str(), cube_name.c_str(),
+                                                              port_name.c_str(), ip_.c_str(), netmask_.c_str());
     system (comand);
   }
 }
@@ -290,4 +294,48 @@ void Ports::delSecondaryipList() {
     std::string netmask = tmp->getNetmask();
     delSecondaryip(ip, netmask);
   }
+}
+
+/**********************/
+// TODO: no system call
+void Ports::change_ip_linux(const std::string &name_iface,
+                            const std::string &ip_) {
+  std::string cmd_string = "ifconfig " + name_iface + " " + ip_ + " netmask " + netmask_;
+  system(cmd_string.c_str());
+}
+
+void Ports::change_netmask_linux(const std::string &name_iface,
+                                 const std::string &netmask_) {
+  std::string cmd_string = "ifconfig " + name_iface + " netmask " + netmask_;
+  system(cmd_string.c_str());
+}
+
+void Ports::change_mac_linux(const std::string &name_iface,
+                             const std::string &mac_) {
+  std::string cmd_string = "ifconfig " + name_iface + " down";
+  system(cmd_string.c_str());
+
+  cmd_string = "ifconfig " + name_iface + " hw ether " + mac_;
+  system(cmd_string.c_str());
+
+  cmd_string = "ifconfig " + name_iface + " up";
+  system(cmd_string.c_str());
+}
+
+
+void Ports::setIp_polycube(const std::string &value){
+  // This method set the ip value only on polycube
+  ip_ = value;
+}
+void Ports::setNetmask_polycube(const std::string &value){
+  // This method set the netmask value only on polycube
+  if (!is_netmask_valid(value)) {
+    parent_.logger()->error("netmask is not valid");
+    return;
+  }
+  netmask_ = value;
+}
+void Ports::setMac_polycube(const std::string &value){
+  // This method set the mac value only on polycube
+  mac_ = value;
 }
