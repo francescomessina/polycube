@@ -58,6 +58,7 @@ set(polycubed_sources
   service_controller.cpp
   patchpanel.cpp
   datapath_log.cpp
+  ns.cpp
   utils.cpp
   id_generator.cpp
   ${server_sources}
@@ -98,4 +99,3 @@ install (TARGETS polycubed DESTINATION bin)
 # create /var/log/polycube and give permissions to this user
 install(CODE
 "execute_process( COMMAND /bin/sh -c \"mkdir -p /var/log/polycube && chown $ENV{USER} /var/log/polycube \")")
-
