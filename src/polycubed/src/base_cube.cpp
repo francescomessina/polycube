@@ -33,7 +33,7 @@ BaseCube::BaseCube(const std::string &name, const std::string &service_name,
                    const std::string &master_code,
                    PatchPanel &patch_panel_ingress,
                    PatchPanel &patch_panel_egress, LogLevel level,
-                   CubeType type)
+                   CubeType type, bool shadow, bool span)
     : name_(name),
       service_name_(service_name),
       logger(spdlog::get("polycubed")),
@@ -46,6 +46,8 @@ BaseCube::BaseCube(const std::string &name, const std::string &service_name,
       egress_index_(0),
       level_(level),
       type_(type),
+      shadow_(shadow),
+      span_(span),
       id_(id_generator_.acquire()) {
   std::lock_guard<std::mutex> guard(bcc_mutex);
 
@@ -123,6 +125,21 @@ const std::string BaseCube::get_name() const {
 
 const std::string BaseCube::get_service_name() const {
   return service_name_;
+}
+
+const bool BaseCube::get_shadow() const {
+  return shadow_;
+}
+
+const bool BaseCube::get_span() const {
+  return span_;
+}
+
+void BaseCube::set_span(bool span) {
+  if (span_ == span)
+    return;
+
+  span_ = span;
 }
 
 const Guid &BaseCube::uuid() const {
@@ -386,6 +403,8 @@ nlohmann::json BaseCube::to_json() const {
   j["service-name"] = service_name_;
   j["type"] = cube_type_to_string(type_);
   j["loglevel"] = logLevelString(level_);
+  j["shadow"] = shadow_;
+  j["span"] = span_;
 
   return j;
 }

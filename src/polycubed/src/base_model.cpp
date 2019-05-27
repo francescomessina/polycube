@@ -100,6 +100,52 @@ Response BaseModel::get_service(const std::string &cube_name) const {
   return Response{kOk, ::strdup(service_name.data())};
 }
 
+Response BaseModel::get_shadow(const std::string &cube_name) const {
+  auto cube_ = ServiceController::get_cube(cube_name);
+  if (cube_ == nullptr) {
+    return Response{kNoContent, ::strdup("Cube does not exist")};
+  }
+
+  std::string sdw;
+  if (cube_->get_shadow()) {
+    sdw = "true";
+  } else {
+    sdw = "false";
+  }
+  auto shadow = "\"" + sdw + "\"";
+
+  return Response{kOk, ::strdup(shadow.data())};
+}
+
+Response BaseModel::get_span(const std::string &cube_name) const {
+  auto cube_ = ServiceController::get_cube(cube_name);
+  if (cube_ == nullptr) {
+    return Response{kNoContent, ::strdup("Cube does not exist")};
+  }
+  std::string spn;
+  if (cube_->get_span()) {
+    spn = "true";
+  } else {
+    spn = "false";
+  }
+  auto span = "\"" + spn + "\"";
+
+  return Response{kOk, ::strdup(span.data())};
+}
+
+Response BaseModel::set_span(const std::string &cube_name,
+                                 const nlohmann::json &json) {
+  auto cube = ServiceController::get_cube(cube_name);
+  if (cube == nullptr) {
+    return Response{kNoContent, ::strdup("Cube does not exist")};
+  }
+
+  auto span = json.get<bool>();
+  cube->set_span(span);
+
+  return Response{kOk, ::strdup("")};
+}
+
 Response BaseModel::get_port_uuid(const std::string &cube_name,
                                   const std::string &port_name) const {
   auto cube_ = ServiceController::get_cube(cube_name);

@@ -54,7 +54,7 @@ class BaseCube : virtual public BaseCubeIface {
                     const std::string &master_code,
                     PatchPanel &patch_panel_ingress_,
                     PatchPanel &patch_panel_egress_, LogLevel level,
-                    CubeType type);
+                    CubeType type, bool shadow, bool span);
   virtual ~BaseCube();
 
   // It is not possible to copy nor assign nor move an cube.
@@ -73,6 +73,10 @@ class BaseCube : virtual public BaseCubeIface {
   uint16_t get_index(ProgramType type) const;
   const std::string get_name() const;
   const std::string get_service_name() const;
+  const bool get_shadow() const;
+  const bool get_span() const;
+  void set_span(bool span);
+
   const Guid &uuid() const;
 
   int get_table_fd(const std::string &table_name, int index, ProgramType type);
@@ -107,6 +111,8 @@ class BaseCube : virtual public BaseCubeIface {
   CubeType type_;
   std::string name_;
   std::string service_name_;
+  bool shadow_;
+  bool span_;
   Guid uuid_;
   uint32_t id_;
 

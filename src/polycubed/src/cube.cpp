@@ -24,9 +24,9 @@ namespace polycubed {
 
 Cube::Cube(const std::string &name, const std::string &service_name,
            PatchPanel &patch_panel_ingress, PatchPanel &patch_panel_egress,
-           LogLevel level, CubeType type)
+           LogLevel level, CubeType type, bool shadow, bool span)
     : BaseCube(name, service_name, MASTER_CODE, patch_panel_ingress,
-               patch_panel_egress, level, type) {
+               patch_panel_egress, level, type, shadow, span) {
   std::lock_guard<std::mutex> guard(bcc_mutex);
 
   auto forward_ = master_program_->get_array_table<uint32_t>("forward_chain_");

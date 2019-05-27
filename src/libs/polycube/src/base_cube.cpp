@@ -115,6 +115,14 @@ const std::string BaseCube::getName() const {
   return get_name();
 }
 
+const bool BaseCube::get_shadow() const {
+  return cube_->get_shadow();
+}
+
+const bool BaseCube::get_span() const {
+  return cube_->get_span();
+}
+
 CubeType BaseCube::get_type() const {
   return cube_->get_type();
 }

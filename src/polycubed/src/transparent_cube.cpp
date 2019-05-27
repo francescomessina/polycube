@@ -35,7 +35,7 @@ TransparentCube::TransparentCube(const std::string &name,
                                  LogLevel level, CubeType type,
                                  const service::attach_cb &attach)
     : BaseCube(name, service_name, "", patch_panel_ingress_,
-               patch_panel_egress_, level, type),
+               patch_panel_egress_, level, type, false, false),
       ingress_next_(0),
       egress_next_(0),
       attach_(attach),

@@ -52,7 +52,7 @@ class Cube : public BaseCube, public CubeIface {
  public:
   explicit Cube(const std::string &name, const std::string &service_name,
                 PatchPanel &patch_panel_ingress_,
-                PatchPanel &patch_panel_egress_, LogLevel level, CubeType type);
+                PatchPanel &patch_panel_egress_, LogLevel level, CubeType type, bool shadow, bool span);
   virtual ~Cube();
 
   std::shared_ptr<PortIface> add_port(const std::string &name,

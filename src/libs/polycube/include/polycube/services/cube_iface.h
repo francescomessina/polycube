@@ -66,6 +66,10 @@ class BaseCubeIface {
   virtual void set_log_level(LogLevel level) = 0;
   virtual LogLevel get_log_level() const = 0;
 
+  virtual const bool get_shadow() const = 0;
+  virtual const bool get_span() const = 0;
+  virtual void set_span(bool span) = 0;
+
   virtual const Guid &uuid() const = 0;
   virtual const std::string get_name() const = 0;
 

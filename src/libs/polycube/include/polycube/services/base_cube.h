@@ -78,6 +78,8 @@ class BaseCube {
 
   const Guid &get_uuid() const;
   const std::string get_name() const;
+  const bool get_shadow() const;
+  const bool get_span() const;
   CubeType get_type() const;
 
   // protected: (later on)
