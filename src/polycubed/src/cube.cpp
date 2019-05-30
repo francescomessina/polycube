@@ -18,6 +18,12 @@
 
 #include "port_tc.h"
 #include "port_xdp.h"
+#include "utils/ns.h"
+#include "utils/veth.h"
+#include "polycube/services/utils.h"
+
+const std::string prefix_ns = "pcn-";
+const std::string prefix_port = "ns_port_";
 
 namespace polycube {
 namespace polycubed {
@@ -36,11 +42,22 @@ Cube::Cube(const std::string &name, const std::string &service_name,
   // add free ports
   for (uint16_t i = 0; i < _POLYCUBE_MAX_PORTS; i++)
     free_ports_.insert(i);
+
+  if (get_shadow()) {
+    std::string name_ns = prefix_ns + name;
+    Namespace ns = Namespace::create(name_ns);
+    ns.set_id(get_id());
+  }
 }
 
 Cube::~Cube() {
   for (auto &it : ports_by_name_) {
     it.second->set_peer("");
+  }
+  if (get_shadow()) {
+    std::string name_ns = prefix_ns + get_name();
+    Namespace ns = Namespace::open(name_ns);
+    ns.remove();
   }
 }
 
@@ -98,6 +115,9 @@ std::shared_ptr<PortIface> Cube::add_port(const std::string &name,
   if (ports_by_name_.count(name) != 0) {
     throw std::runtime_error("Port " + name + " already exists");
   }
+  if (get_shadow() && (name.find(prefix_port) != std::string::npos)) {
+    throw std::runtime_error("Port name cannot contain '" + prefix_port + "'");
+  }
   auto id = allocate_port_id();
 
   std::shared_ptr<PortIface> port;
@@ -125,6 +145,54 @@ std::shared_ptr<PortIface> Cube::add_port(const std::string &name,
     ports_by_name_.erase(name);
     ports_by_index_.erase(id);
     throw;
+  }
+
+  if (get_shadow()) {
+    // create a veth and move it in the namespace
+    std::string name_peerB = get_name() + "-" + name;
+    Veth veth = Veth::create(name, name_peerB);
+    VethPeer peerA = veth.get_peerA();
+    VethPeer peerB = veth.get_peerB();
+
+    peerB.set_status(IFACE_STATUS::UP);
+    peerA.set_namespace(prefix_ns + get_name());
+    peerA.set_status(IFACE_STATUS::UP);
+    if (conf.count("ip") && conf.count("netmask")) {
+      int prefix = polycube::service::utils::get_netmask_length(conf.at("netmask").get<std::string>());
+      peerA.set_ip(conf.at("ip").get<std::string>(), prefix);
+    }
+    if (conf.count("mac")) {
+      peerA.set_mac(conf.at("mac").get<std::string>());
+    }
+
+    std::string name2 = prefix_port + name;
+    nlohmann::json conf2 = nlohmann::json::object();
+    conf2["name"] = name2;
+    conf2["peer"] = name_peerB;
+
+    auto id2 = allocate_port_id();
+    std::shared_ptr<PortIface> port2;
+
+    switch (type_) {
+    case CubeType::TC:
+      port2 = std::make_shared<PortTC>(*this, name2, id2, conf2);
+      break;
+    case CubeType::XDP_SKB:
+    case CubeType::XDP_DRV:
+      port2 = std::make_shared<PortXDP>(*this, name2, id2, conf2);
+      break;
+    }
+
+    ports_by_name_.emplace(name2, port2);
+    ports_by_index_.emplace(id2, port2);
+
+    try {
+      port2->set_peer(name_peerB);
+    } catch(...) {
+      ports_by_name_.erase(name2);
+      ports_by_index_.erase(id2);
+      throw;
+    }
   }
 
   return std::move(port);

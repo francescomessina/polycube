@@ -45,7 +45,7 @@ std::string CubeTC::get_wrapper_code() {
 }
 
 void CubeTC::do_compile(int id, ProgramType type, LogLevel level_,
-                        ebpf::BPF &bpf, const std::string &code, int index) {
+                        ebpf::BPF &bpf, const std::string &code, int index, bool shadow) {
   // compile ebpf program
   std::string all_code(get_wrapper_code() +
                        DatapathLog::get_instance().parse_log(code));
@@ -54,6 +54,7 @@ void CubeTC::do_compile(int id, ProgramType type, LogLevel level_,
   cflags_.push_back("-DCUBE_ID=" + std::to_string(id));
   cflags_.push_back("-DLOG_LEVEL=LOG_" + logLevelString(level_));
   cflags_.push_back(std::string("-DCTXTYPE=") + std::string("__sk_buff"));
+  cflags_.push_back("-DSHADOW=" + std::to_string(shadow));
 
   std::lock_guard<std::mutex> guard(bcc_mutex);
   auto init_res = bpf.init(all_code, cflags_);
@@ -87,7 +88,7 @@ void CubeTC::do_unload(ebpf::BPF &bpf) {
 
 void CubeTC::compile(ebpf::BPF &bpf, const std::string &code, int index,
                      ProgramType type) {
-  do_compile(get_id(), type, level_, bpf, code, index);
+  do_compile(get_id(), type, level_, bpf, code, index, get_shadow());
 }
 
 int CubeTC::load(ebpf::BPF &bpf, ProgramType type) {
@@ -186,6 +187,14 @@ int handle_rx_wrapper(struct CTXTYPE *skb) {
   md.cube_id = CUBE_ID;
   md.packet_len = skb->len;
   skb->cb[0] = md.in_port << 16 | CUBE_ID;
+
+  // Check if the cube is shadow and the in_port has odd index
+  if (SHADOW && (md.in_port % 2)) {
+    u32 port_out = md.in_port - 1;
+    // forward on the port with even index
+    return forward(skb, port_out);
+  }
+
   int rc = handle_rx(skb, &md);
 
   switch (rc) {
@@ -207,6 +216,15 @@ int pcn_pkt_redirect(struct CTXTYPE *skb,
                      struct pkt_metadata *md, u32 port) {
   // FIXME: this is just to reuse this field
   md->reason = port;
+  return RX_REDIRECT;
+}
+
+static __always_inline
+int pcn_pkt_redirect_ns(struct CTXTYPE *skb,
+                     struct pkt_metadata *md, u32 port) {
+  // FIXME: this is just to reuse this field
+  // forward on the port with odd index
+  md->reason = port + 1;
   return RX_REDIRECT;
 }
 )";
