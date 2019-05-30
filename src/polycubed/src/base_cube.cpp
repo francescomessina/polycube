@@ -64,6 +64,11 @@ BaseCube::BaseCube(const std::string &name, const std::string &service_name,
   auto egress_ = master_program_->get_prog_table("egress_programs");
   egress_programs_table_ =
       std::unique_ptr<ebpf::BPFProgTable>(new ebpf::BPFProgTable(egress_));
+
+  auto s = master_program_->get_array_table<bool>("span_table_");
+  span_table_ = std::unique_ptr<ebpf::BPFArrayTable<bool>>(
+      new ebpf::BPFArrayTable<bool>(s));
+  update_span_table(span);
 }
 
 void BaseCube::init(const std::vector<std::string> &ingress_code,
@@ -140,6 +145,13 @@ void BaseCube::set_span(bool span) {
     return;
 
   span_ = span;
+  update_span_table(span);
+}
+
+void BaseCube::update_span_table(bool value) {
+  std::lock_guard<std::mutex> cube_guard(cube_mutex_);
+  if (span_table_)
+    span_table_->update_value(0, value);
 }
 
 const Guid &BaseCube::uuid() const {
@@ -415,6 +427,8 @@ const std::string BaseCube::BASECUBE_MASTER_CODE = R"(
 // tables to save file descriptor of ingress and egress programs
 BPF_TABLE_SHARED("prog", int, int, ingress_programs, _POLYCUBE_MAX_BPF_PROGRAMS);
 BPF_TABLE_SHARED("prog", int, int, egress_programs, _POLYCUBE_MAX_BPF_PROGRAMS);
+// table of single element that saves the span mode attribute
+BPF_TABLE_SHARED("array", int, bool, span_table_, 1);
 )";
 
 const std::string BaseCube::BASECUBE_WRAPPER = R"(
@@ -430,6 +444,7 @@ const std::string BaseCube::BASECUBE_WRAPPER = R"(
 // maps definitions, same as in master program but "extern"
 BPF_TABLE("extern", int, int, ingress_programs, _POLYCUBE_MAX_BPF_PROGRAMS);
 BPF_TABLE("extern", int, int, egress_programs, _POLYCUBE_MAX_BPF_PROGRAMS);
+BPF_TABLE("extern", int, bool, span_table_, 1);
 
 enum {
   RX_OK,

@@ -188,6 +188,20 @@ int handle_rx_wrapper(struct CTXTYPE *skb) {
   md.packet_len = skb->len;
   skb->cb[0] = md.in_port << 16 | CUBE_ID;
 
+  // Check if span mode is active
+  u32 zero = 0;
+  bool *span = span_table_.lookup(&zero);
+  if (span) {
+    if (*span) {
+      if ((SHADOW && !(md.in_port % 2))) {
+        // send packet to namespace
+        u32 port_out = md.in_port + 1;
+        // forward on the port with odd index
+        forward(skb, port_out);
+      }
+    }
+  }
+
   // Check if the cube is shadow and the in_port has odd index
   if (SHADOW && (md.in_port % 2)) {
     u32 port_out = md.in_port - 1;

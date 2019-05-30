@@ -105,6 +105,8 @@ class BaseCube : virtual public BaseCubeIface {
 
   void reload_all();
 
+  void update_span_table(bool value);
+
   PatchPanel &patch_panel_ingress_;
   PatchPanel &patch_panel_egress_;
 
@@ -133,6 +135,8 @@ class BaseCube : virtual public BaseCubeIface {
 
   std::unique_ptr<ebpf::BPFProgTable> ingress_programs_table_;
   std::unique_ptr<ebpf::BPFProgTable> egress_programs_table_;
+
+  std::unique_ptr<ebpf::BPFArrayTable<bool>> span_table_;
 
   std::shared_ptr<spdlog::logger> logger;
   LogLevel level_;
