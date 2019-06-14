@@ -12,6 +12,9 @@
 #include "Stats.h"
 #include "Synflood.h"
 
+#include <fstream>
+#include <sstream>
+#include <string>
 
 Stats::Stats(Synflood &parent, const StatsJsonObject &conf)
     : StatsBase(parent) {
@@ -22,16 +25,16 @@ Stats::~Stats() {}
 const uint64_t ratioMultiplier = 1000;
 
 uint64_t Stats::getTcpattemptfails() {
-  return std::stoull(Synflood::exec("nstat -a | grep TcpAttemptFails | awk '{print $2}'"));
+  return std::stoull(getValue(7, 7));
 }
 
 uint64_t Stats::getTcpoutrsts() {
-  return std::stoull(Synflood::exec("nstat -a | grep TcpOutRsts | awk '{print $2}'"));
+  return std::stoull(getValue(7, 14));
 }
 
 uint64_t Stats::getDeliverratio() {
-  std::istringstream ipInDeliversStream(Synflood::exec("nstat -a | grep IpInDelivers | awk '{print $2}'"));
-  std::istringstream ipInReceivesStream(Synflood::exec("nstat -a | grep IpInReceives | awk '{print $2}'"));
+  std::istringstream ipInDeliversStream(getValue(1, 9));
+  std::istringstream ipInReceivesStream(getValue(1, 3));
 
   uint64_t ipInDelivers;
   uint64_t ipInReceives;
@@ -44,8 +47,8 @@ uint64_t Stats::getDeliverratio() {
 }
 
 uint64_t Stats::getResponseratio() {
-  std::istringstream ipOutRequestsStream(Synflood::exec("nstat -a | grep IpOutRequests | awk '{print $2}'"));
-  std::istringstream ipInReceivesStream(Synflood::exec("nstat -a | grep IpInReceives | awk '{print $2}'"));
+  std::istringstream ipOutRequestsStream(getValue(1, 10));
+  std::istringstream ipInReceivesStream(getValue(1, 3));
 
   uint64_t ipOutRequests;
   uint64_t ipInReceives;
@@ -59,4 +62,49 @@ uint64_t Stats::getResponseratio() {
 
 uint64_t Stats::getLastupdate() {
   return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+}
+
+
+std::string Stats::getValue(const int row, const int column) {
+  /*
+  (line 0) IP: [1]Forwarding [2]DefaultTTL [3]InReceives [4]InHdrErrors [5]InAddrErrors
+  [6]ForwDatagrams [7]InUnknownProtos [8]InDiscards [9]InDelivers [10]OutRequests [11]OutDiscards
+  [12]OutNoRoutes [13]ReasmTimeout [14]ReasmReqds [15]ReasmOKs [16]ReasmFails [17]FragOKs [18]FragFails [19]FragCreates
+  (line 1) IP: [values] x1 ... x19
+  (line 2) ICMP: [1]InMsgs [2]InErrors [3]InCsumErrors [4]InDestUnreachs [5]InTimeExcds [6]InParmProbs [7]InSrcQuenchs
+  [8]InRedirects [9]InEchos [10]InEchoReps [11]InTimestamps [12]InTimestampReps [13]InAddrMasks [14]InAddrMaskReps
+  [15]OutMsgs [16]OutErrors [17]OutDestUnreachs [18]OutTimeExcds [19]OutParmProbs [20]OutSrcQuenchs [21]OutRedirects
+  [22]OutEchos [23]OutEchoReps [24]OutTimestamps [25]OutTimestampReps [26]OutAddrMasks [27]OutAddrMaskReps
+  (line 3) ICMP: [values] x1 ... x27
+  (line 4) IcmpMsg: [1]InType3 [2]InType8 [3]InType11 [4]OutType0 [5]OutType3
+  (line 5) IcmpMsg: [values] x1 ... x5
+  (line 6) Tcp: [1]RtoAlgorithm [2]RtoMin [3]RtoMax [4]MaxConn [5]ActiveOpens [6]PassiveOpens [7]AttemptFails
+  [8]EstabResets [9]CurrEstab [10]InSegs [11]OutSegs [12]RetransSegs [13]InErrs [14]OutRsts [15]InCsumErrors
+  (line 7) Tcp: [values] x1 ... x15
+  (line 8) Udp: [1]InDatagrams [2]NoPorts [3]InErrors [4]OutDatagrams
+  [5]RcvbufErrors [6]SndbufErrors [7]InCsumErrors [8]IgnoredMulti
+  (line 9) Udp: [values] x1 ... x8
+  (line 10) UdpLite: [1]InDatagrams [2]NoPorts [3]InErrors [4]OutDatagrams
+  [5]RcvbufErrors [6]SndbufErrors [7]InCsumErrors [8]IgnoredMulti
+  (line 11) UdpLite: [values] x1 ... x8
+  */
+
+  std::ifstream infile("/proc/net/snmp");
+
+  int n_line = 0;
+  std::string line;
+  while (std::getline(infile, line)) {
+    if (row == n_line) {
+      std::istringstream line_(line);
+      std::vector<std::string> results((std::istream_iterator<std::string>(line_)), std::istream_iterator<std::string>());
+
+      if (results.size() >= column)
+        return results.at(column);
+      else
+        return "";
+    }
+    n_line ++;
+  }
+
+  return "";
 }
