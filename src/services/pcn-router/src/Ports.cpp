@@ -138,14 +138,18 @@ Ports::Ports(polycube::service::Cube<Ports> &parent,
     }
   };
 
-  // Register the new port to IP and MAC notifications arriving from ExtIface
-  subscribe_peer_parameter("IP", f_ip);
-  subscribe_peer_parameter("MAC", f_mac);
+  if (!parent_.get_shadow()) {
+    // Register the new port to IP and MAC notifications arriving from ExtIface
+    subscribe_peer_parameter("IP", f_ip);
+    subscribe_peer_parameter("MAC", f_mac);
+  }
 }
 
 Ports::~Ports() {
-  unsubscribe_peer_parameter("IP");
-  unsubscribe_peer_parameter("MAC");
+  if (!parent_.get_shadow()) {
+    unsubscribe_peer_parameter("IP");
+    unsubscribe_peer_parameter("MAC");
+  }
 }
 
 void Ports::update(const PortsJsonObject &conf) {
